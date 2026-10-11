@@ -31,8 +31,8 @@ public final class ClientSettings {
     public int sampleIntervalTicks = 20;
     public int retentionDays = 7;
 
-    /** 时间点间隔（分钟）。 */
-    public int timePointMinutes = 5;
+    /** 时间点间隔（秒），最低 5 秒。 */
+    public int timePointSeconds = 30;
     /** 融合阈值：某区域内点数超过此值即融合成范围标签。 */
     public int mergeThreshold = 1;
 

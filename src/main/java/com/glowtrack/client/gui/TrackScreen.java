@@ -114,11 +114,11 @@ public class TrackScreen extends Screen {
         addRenderableWidget(FlatButton.of(x, yTele, w, 20,
                 Component.literal("📍 传送至游标时刻"), b -> teleport()));
 
-        // 一行两滑块：时间点间隔 | 保留天数
+        // 一行两滑块：时间点间隔(秒) | 保留天数
         addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, "时间点",
-                () -> (ClientSettings.get().timePointMinutes - 1) / 29.0,
-                v -> { ClientSettings.get().timePointMinutes = (int) Math.round(1 + v * 29); ClientSettings.get().save(); },
-                () -> ClientSettings.get().timePointMinutes + "分钟"));
+                () -> (ClientSettings.get().timePointSeconds - 5) / 295.0,
+                v -> { ClientSettings.get().timePointSeconds = (int) Math.round(5 + v * 295); ClientSettings.get().save(); },
+                () -> ClientSettings.get().timePointSeconds + "s"));
         addRenderableWidget(new FlatSlider(x + col2 + 6, ySlider, col2, 16, "保留",
                 () -> (ClientSettings.get().retentionDays - 1) / 29.0,
                 v -> { ClientSettings.get().retentionDays = (int) Math.round(1 + v * 29); ClientSettings.get().save(); pushSettings(); },
