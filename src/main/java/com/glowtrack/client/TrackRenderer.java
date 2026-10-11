@@ -118,17 +118,19 @@ public final class TrackRenderer {
         for (int[] run : runs) {
             int a0 = run[0], a1 = run[1];
             if (a1 - a0 < 2) continue;
+            double cumDist = 0;   // 沿路径累计距离
             // 逐顶点写入，保持条带连续
             for (int i = a0; i < a1; i++) {
                 TrackPoint p = points.get(i);
                 float y = use3d ? (float) p.y() : (float) flatY;
-                // 彩虹渐变：沿路径位置铺满色环（选品主题=彩虹）
-                float u = (i - a0) / (float) (a1 - a0);
+                if (i > a0) cumDist += points.get(i - 1).distanceTo(p);
+                // 彩虹：每 3 格距离走完一轮色环（快速流动的彩色）
+                float u = (float) ((cumDist / 3.0) % 1.0);
                 float[] c = hsvToRgb(u, 0.9f, 0.65f);
                 float a = alpha;
                 if (!isGlow) {
                     // 流动脉冲：亮度沿路径波动并随时间推进（连续、无断口）
-                    float wave = 0.6f + 0.4f * (float) Math.sin((u * 6f - flow * 6f) * Math.PI * 2 * 0.5);
+                    float wave = 0.6f + 0.4f * (float) Math.sin((cumDist * 1.2 - flow * 12) * Math.PI);
                     a = alpha * wave;
                 }
                 buf.addVertex(mat, (float) p.x(), y, (float) p.z())
@@ -171,7 +173,8 @@ public final class TrackRenderer {
         List<TimeLabel> out = new ArrayList<>();
         if (points.isEmpty()) return out;
         long intervalMs = Math.max(5, s.timePointSeconds) * 1000L;
-        SimpleDateFormat f = new SimpleDateFormat("HH:mm");
+        // 时间标签统一显示到秒：时:分:秒
+        SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss");
 
         List<Integer> anchors = new ArrayList<>();
         long last = Long.MIN_VALUE;

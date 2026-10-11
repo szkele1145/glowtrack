@@ -33,6 +33,8 @@ public final class ClientTrackState {
     private final List<TrackPoint> points = new ArrayList<>();
     private final Set<UUID> trackedSet = new HashSet<>(); // 正被追踪的集合（渲染用）
     private double scrubRatio = 1.0;      // 时间轴游标 0..1（GUI 与渲染器共享）
+    private double viewEndRatio = 1.0;    // 时间轴可见窗口右边缘 0..1（1=最新）
+    private double viewSpanRatio = 0.15;  // 可见窗口宽度占总长比例
 
     public static ClientTrackState get() {
         if (instance == null) instance = new ClientTrackState();
@@ -98,6 +100,15 @@ public final class ClientTrackState {
         this.scrubRatio = Math.max(0.0, Math.min(1.0, r));
     }
 
+    public double viewEndRatio() { return viewEndRatio; }
+    public double viewSpanRatio() { return viewSpanRatio; }
+    public double viewStartRatio() { return Math.max(0.0, viewEndRatio - viewSpanRatio); }
+
+    /** 平移时间轴可见窗口（正=向最新，负=向历史）。 */
+    public void panView(double deltaRatio) {
+        viewEndRatio = Math.max(viewSpanRatio, Math.min(1.0, viewEndRatio + deltaRatio));
+    }
+
     /** 停止追踪：清空当前目标与轨迹，同时移除追踪标记（修复泄漏）。 */
     public void clearTracking() {
         if (tracked != null) trackedSet.remove(tracked);
@@ -113,6 +124,7 @@ public final class ClientTrackState {
         points.clear();
         trackedSet.clear();
         scrubRatio = 1.0;
+        viewEndRatio = 1.0;
     }
 
     /**
