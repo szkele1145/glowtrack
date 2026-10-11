@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -155,10 +156,28 @@ public final class ServerTrackManager {
         for (String name : whitelist) {
             UUID id = onlineIds.get(name);
             boolean online = id != null;
-            if (!online) id = legacyId(name);
+            if (!online) id = resolveOfflineId(server, name);
             entries.add(new Payloads.PlayerEntry(id, name, online));
         }
         PacketDistributor.sendToPlayer(watcher, new Payloads.TrackList(entries));
+    }
+
+    /**
+     * 解析离线白名单玩家的真实 UUID。
+     *
+     * <p>轨迹数据是按玩家真实 UUID 记录的。优先从服务器 usercache
+     * （{@link GameProfileCache}）解析在线模式下的 Mojang UUID；
+     * 缓存未命中时回退到 {@code OfflinePlayer:name} 推导（离线模式服务器）。</p>
+     */
+    private UUID resolveOfflineId(MinecraftServer server, String name) {
+        try {
+            var cache = server.getProfileCache();
+            if (cache != null) {
+                var profile = cache.get(name);
+                if (profile.isPresent()) return profile.get().getId();
+            }
+        } catch (Throwable ignored) { }
+        return legacyId(name);
     }
 
     /** 离线白名单玩家用 OfflinePlayer:name 推导 UUID。 */
