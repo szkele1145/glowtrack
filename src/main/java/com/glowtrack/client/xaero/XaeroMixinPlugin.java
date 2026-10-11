@@ -25,7 +25,11 @@ public class XaeroMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        return xaeroPresent();
+        // 按 mixin 名分别门控：MixinGuiMap 需要世界地图，MixinMinimap 需要小地图
+        if (mixinClassName.endsWith("MixinMinimap")) {
+            return com.glowtrack.client.XaeroDetect.hasMinimap();
+        }
+        return com.glowtrack.client.XaeroDetect.hasWorldMap();
     }
 
     @Override public void onLoad(String mixinPackage) {}

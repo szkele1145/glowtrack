@@ -112,7 +112,8 @@ public class TrackScreen extends Screen {
         addRenderableWidget(new FlatToggle(x + col3 + 6, yMode, col3, 16, "2D",
                 () -> ClientSettings.get().mode2d, v -> { ClientSettings.get().mode2d = v; ClientSettings.get().save(); }));
         addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16, "地图",
-                () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); }));
+                () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); })
+                .enabledWhen(() -> com.glowtrack.client.XaeroDetect.anyXaero()));
 
         addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
                 Component.literal("📍 传送至游标时刻"), b -> teleport()));
@@ -186,6 +187,9 @@ public class TrackScreen extends Screen {
         g.drawString(font, title, 10, 9, 0xE6EDF3, false);
         String mode = ClientTrackState.get().isServerMode() ? "● 服务端模式" : "○ 本地观察";
         g.drawString(font, mode, width - font.width(mode) - 10, 9, 0x58A6FF, false);
+        // 问题反馈群
+        String qq = "反馈Q群 1129543042";
+        g.drawString(font, qq, width - font.width(mode) - 10 - font.width(qq) - 18, 9, 0x6E7681, false);
 
         drawList(g, mx, my);
         drawRightContent(g);

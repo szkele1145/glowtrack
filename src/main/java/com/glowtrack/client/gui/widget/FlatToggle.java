@@ -26,6 +26,7 @@ public class FlatToggle extends Button {
     private final BooleanSupplier get;
     private final Consumer<Boolean> set;
     private final String label;
+    private BooleanSupplier enabled = () -> true;
 
     public FlatToggle(int x, int y, int w, int h, String label,
                       BooleanSupplier get, Consumer<Boolean> set) {
@@ -34,8 +35,15 @@ public class FlatToggle extends Button {
         this.get = get; this.set = set; this.label = label;
     }
 
+    /** 禁用条件（返回 false 时控件变灰且不可点击）。 */
+    public FlatToggle enabledWhen(BooleanSupplier cond) {
+        this.enabled = cond;
+        return this;
+    }
+
     @Override
     public void onPress() {
+        if (!enabled.getAsBoolean()) return;
         set.accept(!get.getAsBoolean());
     }
 
@@ -43,19 +51,23 @@ public class FlatToggle extends Button {
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         var font = Minecraft.getInstance().font;
         boolean on = get.getAsBoolean();
+        boolean en = enabled.getAsBoolean();
         int trackW = 22, trackH = 10;
         int trackX = px;
         int trackY = py + (ph - trackH) / 2;
 
         // 胶囊轨道
-        g.fill(trackX, trackY, trackX + trackW, trackY + trackH, on ? TRACK_ON : TRACK_OFF);
+        g.fill(trackX, trackY, trackX + trackW, trackY + trackH,
+                !en ? 0xFF22272E : (on ? TRACK_ON : TRACK_OFF));
         // 滑块圆点（方形近似）
         int knob = 8;
         int knobX = on ? trackX + trackW - knob - 1 : trackX + 1;
         int knobY = trackY + 1;
-        g.fill(knobX, knobY, knobX + knob, knobY + knob, on ? KNOB_ON : KNOB_OFF);
+        g.fill(knobX, knobY, knobX + knob, knobY + knob,
+                !en ? 0xFF484F58 : (on ? KNOB_ON : KNOB_OFF));
 
         // 标签
-        g.drawString(font, label, trackX + trackW + 6, py + (ph - 8) / 2, TXT, false);
+        g.drawString(font, label, trackX + trackW + 6, py + (ph - 8) / 2,
+                !en ? 0xFF484F58 : TXT, false);
     }
 }
