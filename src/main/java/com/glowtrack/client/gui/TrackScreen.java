@@ -31,7 +31,6 @@ import java.util.UUID;
 public class TrackScreen extends Screen {
 
     private static final int TL_H = 16;
-    private static final int ROW = 24;
 
     private int leftX, leftW, listX, listY, listW, listH;
     private int panelX, panelW, top;
@@ -41,7 +40,6 @@ public class TrackScreen extends Screen {
     private EditBox search;
     private final List<Payloads.PlayerEntry> filtered = new ArrayList<>();
     private Payloads.PlayerEntry selected;
-    private int scrollPx = 0;
     private com.glowtrack.client.gui.widget.TimelineWidget timeline;
     private com.glowtrack.client.gui.widget.PlayerListPane listPane;
 

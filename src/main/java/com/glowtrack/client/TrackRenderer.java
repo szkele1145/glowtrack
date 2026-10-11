@@ -54,7 +54,7 @@ public final class TrackRenderer {
         pose.translate(-cam.x, -cam.y, -cam.z);
 
         ResourceLocation curDim = mc.player.level().dimension().location();
-        List<int[]> runs = contiguousRuns(points, curDim);
+        List<int[]> runs = com.glowtrack.client.render.TrackGeometry.contiguousRuns(points, curDim);
         if (runs.isEmpty()) { pose.popPose(); return; }
 
         double flatY = mc.player.getY() - FLAT_OFFSET;
@@ -89,18 +89,6 @@ public final class TrackRenderer {
         pose.popPose();
     }
 
-    private static List<int[]> contiguousRuns(List<TrackPoint> points, ResourceLocation curDim) {
-        List<int[]> runs = new ArrayList<>();
-        int start = -1;
-        for (int i = 0; i < points.size(); i++) {
-            boolean match = points.get(i).inDimension(curDim);
-            if (match && start < 0) start = i;
-            else if (!match && start >= 0) { runs.add(new int[]{start, i}); start = -1; }
-        }
-        if (start >= 0) runs.add(new int[]{start, points.size()});
-        return runs;
-    }
-
     /**
      * 画一条连续轨迹线。每个 run 用连续条带一次画完（不断跳顶点）。
      * 主线层用逐顶点亮度波制造流动脉冲，发光层保持均匀。
@@ -129,12 +117,12 @@ public final class TrackRenderer {
                 if (i > a0 && i < a1 - 1 && (i - prevKept) < 8) {
                     TrackPoint prev = points.get(prevKept);
                     TrackPoint next = points.get(Math.min(i + 1, a1 - 1));
-                    if (perpDist(prev, p, next) < 0.05) continue;
+                    if (com.glowtrack.client.render.TrackGeometry.perpDist(prev, p, next) < 0.05) continue;
                 }
                 prevKept = i;
                 // 彩虹：每 3 格距离走完一轮色环（快速流动的彩色）
                 float u = (float) ((cumDist / 3.0) % 1.0);
-                float[] c = hsvToRgb(u, 0.9f, 0.65f);
+                float[] c = com.glowtrack.client.render.TrackGeometry.hsvToRgb(u, 0.9f, 0.65f);
                 float a = alpha;
                 if (!isGlow) {
                     // 流动脉冲：亮度沿路径波动并随时间推进（连续、无断口）
@@ -147,16 +135,7 @@ public final class TrackRenderer {
         }
     }
 
-    /** 点 p 到线段 a-b 的垂直距离（用于共线抽稀）。 */
-    private static double perpDist(TrackPoint a, TrackPoint p, TrackPoint b) {
-        double abx = b.x() - a.x(), abz = b.z() - a.z();
-        double apx = p.x() - a.x(), apz = p.z() - a.z();
-        double len2 = abx * abx + abz * abz;
-        if (len2 < 1e-9) return Math.sqrt(apx * apx + apz * apz);
-        double t = Math.max(0, Math.min(1, (apx * abx + apz * abz) / len2));
-        double cx = a.x() + t * abx - p.x(), cz = a.z() + t * abz - p.z();
-        return Math.sqrt(cx * cx + cz * cz);
-    }
+    /** 点 p 到线段 a-b 的垂直距离（用于共线抽稀）。已移至 TrackGeometry。 */
 
     /** 时间标签：每 N 分钟一点，密集区融合为范围。 */
     private static void drawTimeLabels(PoseStack pose, MultiBufferSource.BufferSource buffers,
@@ -241,23 +220,5 @@ public final class TrackRenderer {
     private static double dist(TrackPoint a, TrackPoint b) {
         double dx = a.x() - b.x(), dz = a.z() - b.z();
         return Math.sqrt(dx * dx + dz * dz);
-    }
-
-    /** HSV → RGB（h∈[0,1) 为色相，用于彩虹渐变）。 */
-    private static float[] hsvToRgb(float h, float s, float v) {
-        float h6 = ((h % 1f) + 1f) % 1f * 6f;
-        int i = (int) Math.floor(h6) % 6;
-        float f = h6 - (float) Math.floor(h6);
-        float p = v * (1 - s);
-        float q = v * (1 - f * s);
-        float t = v * (1 - (1 - f) * s);
-        switch (i) {
-            case 0: return new float[]{v, t, p};
-            case 1: return new float[]{q, v, p};
-            case 2: return new float[]{p, v, t};
-            case 3: return new float[]{p, q, v};
-            case 4: return new float[]{t, p, v};
-            default: return new float[]{v, p, q};
-        }
     }
 }

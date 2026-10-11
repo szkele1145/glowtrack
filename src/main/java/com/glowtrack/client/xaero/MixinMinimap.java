@@ -50,27 +50,12 @@ public abstract class MixinMinimap {
             for (int i = 1; i < total; i++) {
                 TrackPoint a = pts.get(i - 1), b = pts.get(i);
                 if (!a.inDimension(b.dimension())) continue;
-                float[] c = hsvToRgb(i / (float) total, 0.9f, 0.65f);   // 彩虹渐变
+                float[] c = com.glowtrack.client.render.TrackGeometry.hsvToRgb(i / (float) total, 0.9f, 0.65f);   // 彩虹渐变
                 buf.addVertex(mat, (float) a.x(), 0f, (float) a.z()).setColor(c[0], c[1], c[2], 1f);
                 buf.addVertex(mat, (float) b.x(), 0f, (float) b.z()).setColor(c[0], c[1], c[2], 1f);
             }
             pose.popPose();
         } catch (Throwable ignored) {
-        }
-    }
-
-    private static float[] hsvToRgb(float h, float s, float v) {
-        float h6 = ((h % 1f) + 1f) % 1f * 6f;
-        int i = (int) Math.floor(h6) % 6;
-        float f = h6 - (float) Math.floor(h6);
-        float p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-        switch (i) {
-            case 0: return new float[]{v, t, p};
-            case 1: return new float[]{q, v, p};
-            case 2: return new float[]{p, v, t};
-            case 3: return new float[]{p, q, v};
-            case 4: return new float[]{t, p, v};
-            default: return new float[]{v, p, q};
         }
     }
 }
