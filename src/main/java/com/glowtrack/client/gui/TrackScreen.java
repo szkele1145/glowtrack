@@ -43,6 +43,7 @@ public class TrackScreen extends Screen {
     private Payloads.PlayerEntry selected;
     private int scrollPx = 0;
     private com.glowtrack.client.gui.widget.TimelineWidget timeline;
+    private com.glowtrack.client.gui.widget.PlayerListPane listPane;
 
     public TrackScreen() {
         super(Component.literal("玩家轨迹追踪"));
@@ -54,8 +55,11 @@ public class TrackScreen extends Screen {
         search = new EditBox(font, leftX + 6, top + 4, leftW - 12, 16, Component.literal("搜索玩家"));
         search.setMaxLength(32);
         search.setHint(Component.literal("🔍 搜索玩家..."));
-        search.setResponder(s -> { refreshList(); scrollPx = 0; });
+        search.setResponder(s -> { refreshList(); listPane.resetScroll(); });
         addRenderableWidget(search);
+        listPane = new com.glowtrack.client.gui.widget.PlayerListPane(
+                listX, listY, listW, listH, e -> { selected = e; });
+        addRenderableWidget(listPane);
         timeline = new com.glowtrack.client.gui.widget.TimelineWidget(tlX, yTl, tlW, TL_H);
         addRenderableWidget(timeline);
         refreshList();
@@ -92,6 +96,7 @@ public class TrackScreen extends Screen {
         String q = (search == null) ? "" : search.getValue().trim().toLowerCase();
         for (Payloads.PlayerEntry e : ClientTrackState.get().whitelist())
             if (q.isEmpty() || e.name().toLowerCase().contains(q)) filtered.add(e);
+        if (listPane != null) { listPane.setItems(filtered); listPane.setSelected(selected); }
     }
 
     private void buildRight() {
@@ -188,7 +193,6 @@ public class TrackScreen extends Screen {
         String qq = "反馈Q群 1129543042";
         g.drawString(font, qq, width - font.width(mode) - 10 - font.width(qq) - 18, 9, 0x6E7681, false);
 
-        drawList(g, mx, my);
         drawRightContent(g);
         if (timeline != null)
             timeline.updateHover(mx, my, !ClientTrackState.get().points().isEmpty());
@@ -197,37 +201,6 @@ public class TrackScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mx, int my, float p) {
         super.render(g, mx, my, p);
-    }
-
-    private void drawList(GuiGraphics g, int mx, int my) {
-        g.drawString(font, "白名单玩家", leftX + 6, top + 10, 0x8B949E, false);
-        g.enableScissor(listX, listY, listX + listW, listY + listH);
-        int y = listY - scrollPx;
-        for (int i = 0; i < filtered.size(); i++) {
-            Payloads.PlayerEntry e = filtered.get(i);
-            if (y + ROW >= listY && y <= listY + listH) {
-                boolean sel = selected != null && selected.id().equals(e.id());
-                boolean hov = mx >= listX && mx <= listX + listW && my >= y && my < y + ROW - 2;
-                if (sel) g.fill(listX, y, listX + listW, y + ROW - 2, 0x331F6FEB);
-                else if (hov) g.fill(listX, y, listX + listW, y + ROW - 2, 0x26FFFFFF);
-                drawHead(g, e.id(), e.name(), listX + 2, y + 4);
-                g.drawString(font, e.name(), listX + 24, y + 4, sel ? 0x58A6FF : 0xE6EDF3, false);
-                g.fill(listX + 24, y + 15, listX + 28, y + 19, e.online() ? 0xFF3FB950 : 0xFF484F58);
-                g.drawString(font, e.online() ? "在线" : "离线", listX + 32, y + 14,
-                        e.online() ? 0x3FB950 : 0x6E7681, false);
-            }
-            y += ROW;
-        }
-        g.disableScissor();
-        if (filtered.isEmpty())
-            g.drawString(font, ClientTrackState.get().whitelist().isEmpty() ? "无白名单数据" : "无匹配玩家",
-                    listX + 4, listY + 4, 0x6E7681, false);
-        int maxScroll = Math.max(0, filtered.size() * ROW - listH);
-        if (maxScroll > 0) {
-            int barH = Math.max(20, listH * listH / (filtered.size() * ROW));
-            int barY = listY + (int) ((listH - barH) * (scrollPx / (double) maxScroll));
-            g.fill(listX + listW - 3, barY, listX + listW - 1, barY + barH, 0x66FFFFFF);
-        }
     }
 
     private void drawRightContent(GuiGraphics g) {
@@ -278,28 +251,11 @@ public class TrackScreen extends Screen {
         return com.glowtrack.track.TrackTimes.nearestByTime(pts, target);
     }
 
-    // ---- 交互（时间轴部分转发给 TimelineWidget，列表部分自留）----
-    @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
-            int idx = (int) ((my - listY + scrollPx) / ROW);
-            if (idx >= 0 && idx < filtered.size()) { selected = filtered.get(idx); return true; }
-        }
-        return super.mouseClicked(mx, my, button);
-    }
+    // ---- 交互（时间轴/列表交互已由各自 widget 处理）----
 
     @Override
     public boolean mouseReleased(double mx, double my, int b) {
         return super.mouseReleased(mx, my, b);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-        if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
-            scrollPx = clamp(scrollPx - (int) (sy * 12), 0, Math.max(0, filtered.size() * ROW - listH));
-            return true;
-        }
-        return super.mouseScrolled(mx, my, sx, sy);
     }
 
     @Override
