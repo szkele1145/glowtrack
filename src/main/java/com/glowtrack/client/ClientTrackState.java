@@ -67,14 +67,17 @@ public final class ClientTrackState {
                         ResourceLocation.tryParse(np.dim()), np.v(), np.yaw(), np.pitch()));
             }
             points.sort(java.util.Comparator.comparingLong(TrackPoint::timeMillis));
+            reanchorScrub();   // 轨迹增长时游标按绝对时刻重锚定，不漂移
         }
     }
 
     /** 本地降级模式：追加一个采样点。 */
     public void localAppend(TrackPoint p) {
         if (tracked == null) return;
-        if (points.isEmpty() || p.timeMillis() >= points.get(points.size() - 1).timeMillis())
+        if (points.isEmpty() || p.timeMillis() >= points.get(points.size() - 1).timeMillis()) {
             points.add(p);
+            reanchorScrub();
+        }
     }
 
     public void setLocalTracked(UUID id, String name) {
@@ -98,6 +101,27 @@ public final class ClientTrackState {
 
     public void setScrubRatio(double r) {
         this.scrubRatio = Math.max(0.0, Math.min(1.0, r));
+        // 记住游标对应的绝对时刻；轨迹增长时游标锚定该时刻不漂移
+        List<TrackPoint> pts = points;
+        if (!pts.isEmpty()) {
+            long t0 = pts.get(0).timeMillis(), t1 = pts.get(pts.size() - 1).timeMillis();
+            this.scrubTimeMillis = t0 + (long) (this.scrubRatio * (t1 - t0));
+        }
+    }
+
+    /** 游标锚定的绝对时刻（轨迹增长时游标保持在此时刻）。 */
+    private long scrubTimeMillis = Long.MIN_VALUE;
+
+    /**
+     * 轨迹数据更新后调用：把 scrubRatio 从锚定的绝对时刻重算出来。
+     * 这样看历史时新点不断到达，游标仍稳定指向用户选中的那个时刻。
+     */
+    public void reanchorScrub() {
+        if (points.isEmpty() || scrubTimeMillis == Long.MIN_VALUE) return;
+        long t0 = points.get(0).timeMillis(), t1 = points.get(points.size() - 1).timeMillis();
+        long span = Math.max(1, t1 - t0);
+        this.scrubRatio = Math.max(0.0, Math.min(1.0,
+                (scrubTimeMillis - t0) / (double) span));
     }
 
     public double viewEndRatio() { return viewEndRatio; }
