@@ -48,6 +48,7 @@ public class TrackScreen extends Screen {
     private boolean tlDragMoved = false;
     private double tlDragStartX = 0;
     private double tlDragStartViewEnd = 1.0;
+    private int hoverTlX = -1, hoverTlY = -1;
 
     public TrackScreen() {
         super(Component.literal("玩家轨迹追踪"));
@@ -193,6 +194,8 @@ public class TrackScreen extends Screen {
 
         drawList(g, mx, my);
         drawRightContent(g);
+        hoverTlX = (mx >= tlX && mx <= tlX + tlW && !ClientTrackState.get().points().isEmpty()) ? mx : -1;
+        hoverTlY = my;
     }
 
     @Override
@@ -289,6 +292,35 @@ public class TrackScreen extends Screen {
             int thumbX = tlX + (int) (vStart * (tlW - 1));
             int thumbW = Math.max(6, (int) ((vEnd - vStart) * (tlW - 1)));
             g.fill(thumbX, sbY, thumbX + thumbW, sbY + 2, 0xFF6E7681);
+
+            // 窗口起止时刻（滚动条右侧）
+            String range = new SimpleDateFormat("HH:mm:ss").format(new Date(t0 + (long) (vStart * span)))
+                    + " → " + new SimpleDateFormat("HH:mm:ss").format(new Date(t0 + (long) (vEnd * span)));
+            g.drawString(font, range, tlX + tlW - font.width(range), sbY + 5, 0x484F58, false);
+
+            // 悬停预览：鼠标在时间轴上时显示该时刻的点信息
+            if (hoverTlX >= 0 && hoverTlY >= yTl - 2 && hoverTlY <= yTl + TL_H + 8) {
+                double hr = vStart + (hoverTlX - tlX) / (double) tlW * (vEnd - vStart);
+                if (hr >= 0 && hr <= 1) {
+                    long ht = t0 + (long) (hr * span);
+                    // 二分找最接近的点
+                    int lo = 0, hi = pts.size() - 1;
+                    while (lo < hi) {
+                        int mid = (lo + hi) >>> 1;
+                        if (pts.get(mid).timeMillis() < ht) lo = mid + 1; else hi = mid;
+                    }
+                    if (lo > 0 && Math.abs(pts.get(lo - 1).timeMillis() - ht)
+                            <= Math.abs(pts.get(lo).timeMillis() - ht)) lo--;
+                    TrackPoint hp = pts.get(lo);
+                    String tip = new SimpleDateFormat("HH:mm:ss").format(new Date(hp.timeMillis()))
+                            + String.format("  %.0f,%.0f,%.0f", hp.x(), hp.y(), hp.z());
+                    int tw = font.width(tip) + 8;
+                    int tx = Math.min(hoverTlX + 6, tlX + tlW - tw);
+                    int ty = yTl - 14;
+                    g.fill(tx, ty, tx + tw, ty + 12, 0xE01C2129);
+                    g.drawString(font, tip, tx + 4, ty + 2, 0xC9D1D9, false);
+                }
+            }
         }
 
         if (pts.isEmpty()) {
