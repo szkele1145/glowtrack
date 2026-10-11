@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>玩家轨迹渲染 · 效果选品页</title>
+<style>
+  :root{
+    --bg:#070b16; --panel:#0f1729; --panel2:#131d33; --line:#22304f;
+    --txt:#dbe7ff; --dim:#7f92b8; --accent:#22d3ee; --accent2:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 700px at 20% -10%,#12204100,#070b16),
+               radial-gradient(900px 600px at 110% 110%,#1a1033 0%,#070b16 60%);
+    color:var(--txt);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh; padding:24px clamp(12px,3vw,40px) 60px;
+  }
+  header{max-width:1400px;margin:0 auto 18px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:26px;letter-spacing:1px;
+    background:linear-gradient(90deg,#7dfcff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+  header .sub{color:var(--dim);font-size:13px}
+  .layout{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr}}
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .card h2{font-size:14px;color:var(--accent);padding:12px 16px;border-bottom:1px solid var(--line);
+    letter-spacing:2px;display:flex;justify-content:space-between;align-items:center}
+  .card h2 .hint{color:var(--dim);font-size:11px;letter-spacing:0}
+
+  .stage{position:relative;background:#05080f}
+  canvas{display:block;width:100%;height:540px}
+  .stage .tip{position:absolute;left:14px;bottom:12px;font-size:12px;color:#9fd6ff;
+    background:#04121cd9;border:1px solid #164a63;padding:6px 10px;border-radius:8px;pointer-events:none}
+  .stage .fps{position:absolute;right:14px;top:12px;font-size:11px;color:#4b6a94}
+
+  .toolbar{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+  button{background:#16233d;color:var(--txt);border:1px solid #2b3d61;border-radius:9px;
+    padding:7px 13px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit}
+  button:hover{border-color:var(--accent);color:#7dfcff;box-shadow:0 0 12px #22d3ee44}
+  button.primary{background:linear-gradient(90deg,#0e7490,#0891b2);border-color:#22d3ee}
+  .slider{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
+  input[type=range]{accent-color:#22d3ee;width:110px}
+
+  /* 效果卡片 */
+  .fxlist{padding:10px;display:flex;flex-direction:column;gap:8px;max-height:540px;overflow:auto}
+  .fx{display:flex;gap:11px;align-items:flex-start;background:#0c1426;border:1px solid #1c2a47;
+    border-radius:11px;padding:10px 12px;cursor:pointer;transition:.15s;user-select:none}
+  .fx:hover{border-color:#31507f}
+  .fx.on{border-color:var(--accent);background:#0b1d2c;box-shadow:inset 0 0 18px #22d3ee18}
+  .fx input{margin-top:3px;accent-color:#22d3ee;width:15px;height:15px;cursor:pointer}
+  .fx .name{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .fx .dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .fx .desc{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.55}
+  .fx .tag{font-size:10px;color:#5b7099;border:1px solid #26375a;border-radius:5px;padding:1px 5px}
+
+  .themes{display:flex;gap:7px;padding:10px 14px;border-top:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .sw{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s}
+  .sw:hover{transform:scale(1.12)}
+  .sw.on{border-color:#fff;box-shadow:0 0 10px currentColor}
+  .label{font-size:12px;color:var(--dim);margin-right:2px}
+
+  /* 汇总 */
+  .summary{max-width:1400px;margin:18px auto 0}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px 4px}
+  .chip{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid #2b5f7a;
+    background:#0a1c28;color:#8ee9ff}
+  .chip.off{background:#101728;color:#5b7099;border-color:#26375a}
+  .wrap{padding:12px 16px 16px}
+  textarea{width:100%;height:230px;background:#070d1a;border:1px solid #1e2c4a;border-radius:10px;
+    color:#a9c3ea;font-size:12.5px;font-family:Consolas,"Microsoft YaHei",monospace;padding:12px;resize:vertical;line-height:1.7}
+  .btns{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(80px);
+    background:#0e7490;color:#fff;padding:10px 22px;border-radius:24px;font-size:14px;opacity:0;
+    transition:.3s;pointer-events:none;box-shadow:0 6px 24px #0008}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>玩家轨迹渲染 · 效果选品页</h1>
+  <span class="sub">勾选任意组合 → 右侧/画布实时预览 → 底部生成需求清单交给开发</span>
+</header>
+
+<div class="layout">
+  <!-- 预览区 -->
+  <section class="card">
+    <h2>实时预览 <span class="hint">伪 3D 透视 · 相机自动环绕 · 笔尖实时画线</span></h2>
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="tip">💡 预览里有 4 个方块刻意压在轨迹上：开关「穿墙显示」对比效果</div>
+      <div class="fps" id="fps"></div>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="play">⏸ 暂停动画</button>
+      <button id="reset">↻ 重播轨迹</button>
+      <div class="slider">线宽 <input type="range" id="lw" min="1" max="8" step="0.5" value="3">
+        <span id="lwv">3.0</span></div>
+      <button id="presetRec">✨ 推荐组合</button>
+      <button id="presetAll">全选</button>
+      <button id="presetNone">清空</button>
+    </div>
+    <div class="themes">
+      <span class="label">配色主题</span>
+      <div class="sw on" data-t="cyan"  style="background:linear-gradient(135deg,#0e4f5e,#7dfcff);color:#22d3ee" title="荧光青"></div>
+      <div class="sw" data-t="green" style="background:linear-gradient(135deg,#0f3d22,#86efac);color:#4ade80" title="荧光绿"></div>
+      <div class="sw" data-t="magenta" style="background:linear-gradient(135deg,#4a1052,#f0abfc);color:#e879f9" title="品红紫"></div>
+      <div class="sw" data-t="lava"  style="background:linear-gradient(135deg,#4a2008,#fdba74);color:#fb923c" title="熔岩橙"></div>
+      <div class="sw" data-t="rainbow" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);color:#fff" title="彩虹"></div>
+      <span class="label" style="margin-left:8px" id="themeName">荧光青</span>
+    </div>
+  </section>
+
+  <!-- 效果开关 -->
+  <aside class="card">
+    <h2>表现形式选品 <span class="hint">可多选</span></h2>
+    <div class="fxlist" id="fxlist">
+      <label class="fx on"><input type="checkbox" id="f_grad" checked>
+        <div><div class="name"><span class="dot" style="background:#7dfcff;color:#7dfcff"></span>时间渐变色</div>
+        <div class="desc">旧段暗、新段亮，颜色沿路径流动，一眼看出移动方向。</div></div></label>
+
+      <label class="fx"><input type="checkbox" id="f_heat">
+        <div><div class="name"><span class="dot" style="background:#f43f5e;color:#f43f5e"></span>速度热力着色</div>
+        <div class="desc">移动慢=蓝、快=红，热力图式呈现走位习惯。（与时间渐变同时勾选时热力优先）</div></div></label>
+
+      <label class="fx on"><input type="checkbox" id="f_glow" checked>
+        <div><div class="name"><span class="dot" style="background:#a5f3fc;color:#a5f3fc"></span>发光光晕</div>
+        <div class="desc">荧光辉光 + 加色混合，暗处环境里更醒目。</div></div></label>
+
+      <label class="fx on"><input type="checkbox" id="f_wall" checked>
+        <div><div class="name"><span class="dot" style="background:#c4b5fd;color:#c4b5fd"></span>穿墙显示</div>
+        <div class="desc">关闭深度测试，隔墙 / 隔地形看到完整轨迹；关闭则会被方块真实遮挡。</div></div></label>
+
+      <label class="fx on"><input type="checkbox" id="f_arrow" checked>
+        <div><div class="name"><span class="dot" style="background:#fbbf24;color:#fbbf24"></span>方向箭头</div>
+        <div class="desc">沿路径每隔一段画一个移动方向箭头。</div></div></label>
+
+      <label class="fx"><input type="checkbox" id="f_time">
+        <div><div class="name"><span class="dot" style="background:#34d399;color:#34d399"></span>时间刻度标签</div>
+        <div class="desc">在关键点标注时刻（mm:ss），可与 Xaero 地图时间轴对照。</div></div></label>
+
+      <label class="fx on"><input type="checkbox" id="f_tip" checked>
+        <div><div class="name"><span class="dot" style="background:#fff;color:#fff"></span>实时笔尖光点</div>
+        <div class="desc">高亮光点跟随被追踪玩家当前位置，像正在画线的笔尖。</div></div></label>
+
+      <label class="fx"><input type="checkbox" id="f_dash">
+        <div><div class="name"><span class="dot" style="background:#60a5fa;color:#60a5fa"></span>脉冲流动虚线</div>
+        <div class="desc">虚线沿路径持续流动，动态感更强。</div></div></label>
+    </div>
+  </aside>
+</div>
+
+<!-- 需求清单 -->
+<section class="card summary">
+  <h2>需求清单 <span class="hint">复制下方文本发给开发即可开工</span></h2>
+  <div class="tags" id="chips"></div>
+  <div class="wrap">
+    <textarea id="out" readonly></textarea>
+    <div class="btns">
+      <button class="primary" id="copy">📋 复制需求清单</button>
+      <button id="dl">⬇ 下载为 txt</button>
+      <span style="font-size:12px;color:var(--dim);align-self:center" id="cnt"></span>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast">已复制到剪贴板 ✓</div>
+
+<script>
+/* ============================ 轨迹与场景数据 ============================ */
+const N = 240;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rnd = mulberry32(20261011);
+
+const pts = [];
+{ // 生成一条在起伏地形上蜿蜒的路径（x/z 水平，y 高度）
+  let x=0,z=0,ang=rnd()*Math.PI*2;
+  for(let i=0;i<N;i++){
+    ang += (rnd()-0.5)*0.85;
+    // 边界回推，保持在场地内
+    if(Math.abs(x)>15) ang += (x>0?1:-1)*0.9*rnd();
+    if(Math.abs(z)>15) ang += (z>0?1:-1)*0.9*rnd();
+    const step = 0.32 + rnd()*0.55;
+    x += Math.cos(ang)*step; z += Math.sin(ang)*step;
+    x = Math.max(-16,Math.min(16,x)); z = Math.max(-16,Math.min(16,z));
+    const y = 3.4 + Math.sin(x*0.30)*2.2 + Math.sin(z*0.26)*1.9 + (rnd()-0.5)*0.6;
+    pts.push({x,y,z});
+  }
+}
+// 段速度（归一化 0..1）
+const segLen=[];
+for(let i=1;i<N;i++){const a=pts[i-1],b=pts[i];segLen.push(Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z));}
+const sMin=Math.min(...segLen), sMax=Math.max(...segLen);
+const speed=i=>(segLen[i]-sMin)/(sMax-sMin+1e-6);
+
+// 地形方块：其中 4 个刻意压在轨迹上（演示穿墙）
+const blocks=[];
+[45,100,155,205].forEach(i=>{
+  const p=pts[i]; const s=2.6+rnd()*1.4;
+  blocks.push({x:p.x, y:p.y+0.2, z:p.z, s, hit:true});
+});
+for(let i=0;i<9;i++){
+  blocks.push({x:(rnd()-0.5)*30, y:1.2+rnd()*3, z:(rnd()-0.5)*30, s:2+rnd()*3.4, hit:false});
+}
+
+/* ============================ 相机与投影 ============================ */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let W=0,H=0,dpr=1;
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=cv.clientWidth; H=cv.clientHeight;
+  cv.width=W*dpr; cv.height=H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',resize);
+
+const cam={yaw:0,pitch:0.60,dist:36,focal:520,cx:0,cy:3.4,cz:0};
+function proj(p){
+  const x=p.x-cam.cx, y=p.y-cam.cy, z=p.z-cam.cz;
+  const cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw);
+  const x1=x*cy - z*sy, z1=x*sy + z*cy;
+  const cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch);
+  const y2=y*cp - z1*sp, z2=y*sp + z1*cp;
+  const depth=cam.dist + z2;
+  if(depth<2) return null;
+  const s=cam.focal/depth;
+  return {sx:W/2 + x1*s, sy:H/2 - y2*s, depth, s};
+}
+
+/* ============================ UI 状态 ============================ */
+const F={grad:'f_grad',heat:'f_heat',glow:'f_glow',wall:'f_wall',arrow:'f_arrow',time:'f_time',tip:'f_tip',dash:'f_dash'};
+const st={grad:true,heat:false,glow:true,wall:true,arrow:true,time:false,tip:true,dash:false};
+let theme='cyan', lw=3.0, playing=true, prog=0, dashOff=0;
+
+const THEMES={
+  cyan:{name:'荧光青',dark:'#0b4152',mid:'#22d3ee',bright:'#a5f3fc'},
+  green:{name:'荧光绿',dark:'#0c4028',mid:'#22c55e',mid2:'#86efac',bright:'#bbf7d0'},
+  magenta:{name:'品红紫',dark:'#43104e',mid:'#d946ef',bright:'#f5d0fe'},
+  lava:{name:'熔岩橙',dark:'#4a2008',mid:'#f97316',bright:'#fed7aa'},
+  rainbow:{name:'彩虹',dark:'#22d3ee',mid:'#a78bfa',bright:'#f0abfc'}
+};
+
+function hex2rgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function mix(a,b,t){const A=hex2rgb(a),B=hex2rgb(b);
+  return`rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`}
+function heatColor(t){ // 0=慢(蓝) → 1=快(红)
+  const h=220-220*Math.max(0,Math.min(1,t));
+  return`hsl(${h} 92% 58%)`;
+}
+function segColor(i,head){
+  const T=THEMES[theme];
+  if(theme==='rainbow'){const h=(i*4.2)%360;return`hsl(${h} 90% 60%)`}
+  if(st.heat) return heatColor(speed(i));
+  if(st.grad){const t=head<=0?0:i/head; return mix(T.dark,T.bright,Math.pow(t,0.85))}
+  return T.mid;
+}
+
+/* ============================ 绘制 ============================ */
+function drawGrid(){
+  ctx.strokeStyle='rgba(70,110,170,0.13)'; ctx.lineWidth=1;
+  for(let g=-16;g<=16;g+=4){
+    let a=proj({x:g,y:-2.6,z:-16}), b=proj({x:g,y:-2.6,z:16});
+    if(a&&b){ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke()}
+    a=proj({x:-16,y:-2.6,z:g}); b=proj({x:16,y:-2.6,z:g});
+    if(a&&b){ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke()}
+  }
+}
+function drawBlock(bl){
+  const s=bl.s/2, c=[[bl.x-s,bl.y-s,bl.z-s],[bl.x+s,bl.y-s,bl.z-s],[bl.x+s,bl.y-s,bl.z+s],[bl.x-s,bl.y-s,bl.z+s],
+                     [bl.x-s,bl.y+s,bl.z-s],[bl.x+s,bl.y+s,bl.z-s],[bl.x+s,bl.y+s,bl.z+s],[bl.x-s,bl.y+s,bl.z+s]];
+  const v=c.map(p=>proj({x:p[0],y:p[1],z:p[2]}));
+  if(v.some(x=>!x)) return;
+  const faces=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+  const order=faces.map((f,k)=>({f,d:f.reduce((s,i)=>s+v[i].depth,0)/4,k}))
+                   .sort((a,b)=>b.d-a.d); // 远→近
+  for(const {f} of order){
+    ctx.beginPath(); ctx.moveTo(v[f[0]].sx,v[f[0]].sy);
+    for(let i=1;i<4;i++) ctx.lineTo(v[f[i]].sx,v[f[i]].sy);
+    ctx.closePath();
+    const alpha=0.16;
+    ctx.fillStyle= bl.hit?`rgba(140,90,220,${alpha})`:`rgba(70,110,190,${alpha})`;
+    ctx.fill();
+    ctx.strokeStyle= bl.hit?'rgba(190,150,255,0.55)':'rgba(120,170,255,0.35)';
+    ctx.lineWidth=1; ctx.stroke();
+  }
+}
+function drawSeg(a,b,color,lwpx,glow,dash){
+  ctx.save();
+  if(glow){
+    ctx.globalCompositeOperation='lighter';
+    ctx.shadowBlur=14; ctx.shadowColor=color;
+    ctx.strokeStyle=color; ctx.lineWidth=lwpx*1.9;
+    ctx.globalAlpha=0.35;
+    ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+    ctx.globalAlpha=1; ctx.shadowBlur=0;
+  }
+  ctx.globalCompositeOperation= glow?'lighter':'source-over';
+  ctx.strokeStyle=color; ctx.lineWidth=lwpx;
+  if(dash){ctx.setLineDash([9,7]); ctx.lineDashOffset=-dashOff;}
+  ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+  ctx.restore();
+}
+function arrowHead(a,b,color,size){
+  const ang=Math.atan2(b.sy-a.sy,b.sx-a.sx);
+  ctx.save(); ctx.translate(b.sx,b.sy); ctx.rotate(ang);
+  ctx.fillStyle=color; ctx.shadowBlur=8; ctx.shadowColor=color;
+  ctx.beginPath(); ctx.moveTo(size,0); ctx.lineTo(-size*0.8,size*0.62);
+  ctx.lineTo(-size*0.8,-size*0.62); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function timeLabel(p,text,color){
+  ctx.save();
+  ctx.font='600 11px Consolas,monospace';
+  const w=ctx.measureText(text).width+12;
+  ctx.fillStyle='rgba(4,12,20,0.82)'; ctx.strokeStyle=color; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(p.sx-w/2,p.sy-24,w,16,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,p.sx,p.sy-16); ctx.restore();
+}
+function fmtTime(sec){const m=Math.floor(sec/60),s=Math.floor(sec%60);
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+
+let last=performance.now(), frames=0, fpsT=0;
+function frame(now){
+  const dt=Math.min(50,now-last); last=now;
+  frames++; fpsT+=dt;
+  if(fpsT>500){document.getElementById('fps').textContent=Math.round(frames*1000/fpsT)+' FPS';
+    frames=0;fpsT=0}
+
+  if(playing){ prog+=dt*0.030; if(prog>N-1) prog=0; dashOff+=dt*0.045; cam.yaw+=dt*0.00022; }
+
+  // 背景
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#050a14'); bg.addColorStop(1,'#070d1c');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  cam.focal=Math.min(W,H)*1.15;
+  drawGrid();
+
+  const head=Math.floor(prog);
+  const items=[];
+
+  // 方块
+  for(const bl of blocks){
+    const p=proj({x:bl.x,y:bl.y,z:bl.z});
+    if(p) items.push({d:p.depth,f:()=>drawBlock(bl)});
+  }
+  // 轨迹分段
+  for(let i=0;i<head;i++){
+    const A=pts[i],B=pts[i+1];
+    const a=proj(A), b=proj(B);
+    if(!a||!b) continue;
+    const color=segColor(i,head);
+    const lwpx=Math.max(0.6,Math.min(7,lw*(18/a.depth)));
+    items.push({
+      d: st.wall? -1e6 : a.depth,   // 穿墙 → 强制最上层
+      f:()=>drawSeg(a,b,color,lwpx,st.glow,st.dash)
+    });
+    // 方向箭头
+    if(st.arrow && i>0 && i%18===0){
+      items[items.length-1].f2=()=>arrowHead(proj(pts[i-1])||a,b,color,Math.max(4,Math.min(11,1.1*a.s)));
+    }
+    // 时间标签
+    if(st.time && i>0 && i%48===0){
+      const pp=proj(pts[i]);
+      items[items.length-1].f3=()=>pp&&timeLabel(pp,fmtTime(i/N*360),color);
+    }
+  }
+  items.sort((x,y)=>y.d-x.d);           // 远 → 近
+  for(const it of items){ it.f(); it.f2&&it.f2(); it.f3&&it.f3(); }
+
+  // 笔尖
+  if(st.tip && head>0 && head<N){
+    const p=proj(pts[head]);
+    if(p){
+      const pulse=1+Math.sin(now*0.008)*0.3;
+      const r=Math.max(3,Math.min(10,0.42*p.s))*pulse;
+      const col=theme==='rainbow'?`hsl(${(head*4.2)%360} 90% 65%)`:THEMES[theme].bright;
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(p.sx,p.sy,0,p.sx,p.sy,r*3.2);
+      g.addColorStop(0,'#ffffff'); g.addColorStop(0.28,col); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.sx,p.sy,r*3.2,0,7); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(p.sx,p.sy,r*0.5,0,7); ctx.fill();
+      ctx.restore();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================ 交互 ============================ */
+const $=id=>document.getElementById(id);
+function syncFx(){
+  Object.keys(F).forEach(k=>{ st[k]=$(F[k]).checked;
+    $(F[k]).closest('.fx').classList.toggle('on',st[k]); });
+  updateOut();
+}
+Object.values(F).forEach(id=>$(id).addEventListener('change',syncFx));
+
+document.querySelectorAll('.sw').forEach(el=>el.addEventListener('click',()=>{
+  document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on'); theme=el.dataset.t;
+  $('themeName').textContent=THEMES[theme].name; updateOut();
+}));
+$('lw').addEventListener('input',e=>{lw=+e.target.value;$('lwv').textContent=lw.toFixed(1);updateOut()});
+$('play').addEventListener('click',e=>{playing=!playing;
+  e.target.textContent=playing?'⏸ 暂停动画':'▶ 播放动画'});
+$('reset').addEventListener('click',()=>{prog=0});
+const RECOMMENDED={grad:1,heat:0,glow:1,wall:1,arrow:1,time:0,tip:1,dash:0};
+function applyPreset(p){Object.keys(F).forEach(k=>{$(F[k]).checked=!!p[k]});syncFx()}
+$('presetRec').addEventListener('click',()=>applyPreset(RECOMMENDED));
+$('presetAll').addEventListener('click',()=>applyPreset({grad:1,heat:1,glow:1,wall:1,arrow:1,time:1,tip:1,dash:1}));
+$('presetNone').addEventListener('click',()=>applyPreset({}));
+
+/* ---------- 需求清单 ---------- */
+const FXNAME={grad:'时间渐变色',heat:'速度热力着色',glow:'发光光晕',wall:'穿墙显示（关深度测试）',
+  arrow:'方向箭头',time:'时间刻度标签',tip:'实时笔尖光点',dash:'脉冲流动虚线'};
+const OTHER=[
+  '架构：双模式兼容（服务端记录白名单玩家轨迹 + 纯客户端自动降级本地观察）',
+  '数据：文件持久化（按玩家+日期分文件）+ 轨迹导出 + 轨迹导入',
+  '权限：OP 4 级可用，兼容 LuckPerms 权限节点（可配置）',
+  'Xaero 联动：使用 Xaero 地图 API 直接在世界地图/小地图上画轨迹线（可选依赖，未安装自动隐藏）',
+  '采样：采样频率、历史保留时长均可在 GUI 内调节',
+  'GUI：左侧白名单玩家列表 + 搜索框，右侧选中玩家的追踪控制面板，OP 打开',
+];
+function buildText(){
+  const picked=Object.keys(F).filter(k=>st[k]);
+  const heatConflict=st.heat&&st.grad;
+  let t='【玩家轨迹追踪模组 · 渲染效果选品】\n';
+  t+='生成时间：'+new Date().toLocaleString('zh-CN')+'\n\n';
+  t+='■ 勾选的渲染表现（'+picked.length+'/8）：\n';
+  t+=(picked.length?picked.map((k,i)=>`  ${i+1}. ${FXNAME[k]}`).join('\n'):'  （未勾选任何效果 = 默认单色轨迹线）')+'\n';
+  if(heatConflict) t+='  ⚠ 注意：「速度热力」与「时间渐变」同时勾选时，热力优先（如需改成热力只在部分路段生效请备注）\n';
+  t+='\n■ 样式参数：\n  配色主题：'+THEMES[theme].name+'\n  线宽：'+lw.toFixed(1)+'\n';
+  t+='\n■ 其他已确认需求：\n'+OTHER.map((o,i)=>`  ${i+1}. ${o}`).join('\n')+'\n';
+  t+='\n■ 预览文件：D:\\player-tracker\\preview\\render-preview.html\n';
+  return t;
+}
+function updateOut(){
+  $('out').value=buildText();
+  const picked=Object.keys(F).filter(k=>st[k]);
+  $('chips').innerHTML=Object.keys(F).map(k=>
+    `<span class="chip ${st[k]?'':'off'}">${st[k]?'✓ ':'✕ '}${FXNAME[k]}</span>`).join('');
+  $('cnt').textContent=`已选 ${picked.length} 项 · 配色：${THEMES[theme].name} · 线宽 ${lw.toFixed(1)}`;
+}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1600)}
+$('copy').addEventListener('click',async()=>{
+  const txt=$('out').value;
+  try{await navigator.clipboard.writeText(txt);toast('已复制到剪贴板 ✓')}
+  catch(e){$('out').select();document.execCommand('copy');toast('已复制到剪贴板 ✓')}
+});
+$('dl').addEventListener('click',()=>{
+  const blob=new Blob([$('out').value],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='轨迹渲染选品.txt'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('已下载 txt ✓');
+});
+
+/* ---------- 启动 ---------- */
+resize(); syncFx(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

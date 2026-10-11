@@ -1,0 +1,61 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.78'
+}
+
+version = '1.0.0'
+group = 'com.glowtrack'
+base { archivesName = 'glowtrack' }
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        minecraftVersion = '1.21.1'
+        mappingsVersion = '2024.11.17'
+    }
+
+    runs {
+        client { client() }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        glowtrack { sourceSet sourceSets.main }
+    }
+}
+
+// Xaero 世界地图（可选依赖，仅编译期用于 Mixin GuiMap 画线；未安装则运行时跳过）
+// jar 已手动下载到 libs/（本地代理对 chocolateminecraft.com 做 TLS 拦截，远程仓库不可靠）
+dependencies {
+    compileOnly files('libs/xaeroworldmap-neoforge-1.21.1-1.47.0.jar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+processResources {
+    var replaceProperties = [
+            minecraft_version: '1.21.1',
+            minecraft_version_range: '[1.21.1,1.22)',
+            neo_version: project.neo_version,
+            neo_version_range: '[21.1.0,)',
+            mod_id: 'glowtrack',
+            mod_name: 'GlowTrack',
+            mod_license: 'MIT',
+            mod_version: project.version,
+            mod_authors: 'GlowTrack',
+            mod_description: 'Player movement trajectory tracker with glowing 3D path rendering, timeline review, teleport, and Xaero map integration.'
+    ]
+    inputs.properties replaceProperties
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand replaceProperties
+    }
+}

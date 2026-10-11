@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowTrack 玩家轨迹追踪 · GUI 原型</title>
+<style>
+  :root{
+    --bg:#070b16; --panel:#0f1729; --panel2:#131d33; --line:#22304f;
+    --txt:#dbe7ff; --dim:#7f92b8; --accent:#22d3ee; --ok:#34d399; --warn:#fbbf24;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1000px 600px at 15% -5%, #16233f55, transparent),
+      radial-gradient(900px 600px at 105% 105%, #2a124555, transparent),
+      #05080f;
+    color:var(--txt);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh; padding:26px 14px 70px;
+    display:flex;flex-direction:column;align-items:center;gap:18px;
+  }
+  .pagetitle{font-size:20px;letter-spacing:1px;color:#9fb6dd}
+  .pagetitle b{background:linear-gradient(90deg,#7dfcff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* ============ 模拟游戏内窗口 ============ */
+  .window{
+    width:min(1280px,96vw); height:820px;
+    background:linear-gradient(180deg,#0d1524ee,#0a111dee);
+    border:1px solid #2b3d61; border-radius:16px;
+    box-shadow:0 0 0 1px #0006, 0 30px 80px #000c, 0 0 60px #22d3ee14;
+    display:flex;flex-direction:column;overflow:hidden;position:relative;
+    transition:opacity .25s, transform .25s;
+  }
+  .window.hidden{opacity:0;transform:scale(.96);pointer-events:none}
+
+  .titlebar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,#0d2033,#141a30);
+  }
+  .titlebar .t{font-size:16px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:10px}
+  .badge{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid #2b5f7a;background:#0a1c28;color:#8ee9ff}
+  .badge.ok{border-color:#1d6b4f;background:#07251a;color:#6ee7b7}
+  .wb{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
+      border:1px solid #2b3d61;background:#16233d;color:#9fb6dd;font-size:13px}
+  .wb:hover{border-color:#f87171;color:#fca5a5}
+  .winbtns{display:flex;gap:7px}
+
+  .body{flex:1;display:grid;grid-template-columns:320px 1fr;min-height:0}
+
+  /* ============ 左侧：玩家列表 ============ */
+  .left{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:#0b1220}
+  .searchrow{padding:12px;display:flex;gap:8px;align-items:center}
+  .searchrow input{
+    flex:1;background:#070d1a;border:1px solid #22304f;border-radius:10px;
+    color:var(--txt);padding:9px 12px;font-size:13.5px;outline:none;font-family:inherit;
+  }
+  .searchrow input:focus{border-color:var(--accent);box-shadow:0 0 12px #22d3ee33}
+  .plist{flex:1;overflow-y:auto;padding:0 8px 8px;display:flex;flex-direction:column;gap:5px}
+  .plist::-webkit-scrollbar{width:8px}
+  .plist::-webkit-scrollbar-thumb{background:#22304f;border-radius:4px}
+  .prow{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:11px;
+    border:1px solid transparent;cursor:pointer;transition:.12s;
+  }
+  .prow:hover{background:#101b30;border-color:#22304f}
+  .prow.sel{background:#0b2130;border-color:var(--accent);box-shadow:inset 0 0 20px #22d3ee15}
+  .prow canvas{width:34px;height:34px;border-radius:7px;image-rendering:pixelated;flex:none;
+               box-shadow:0 0 0 1px #0008}
+  .prow .info{flex:1;min-width:0}
+  .prow .nm{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .prow .nm .on{width:8px;height:8px;border-radius:50%;background:#374151;flex:none}
+  .prow .nm .on.live{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .prow .sub{font-size:11px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .trk{font-size:10px;color:#052e22;background:#34d399;border-radius:5px;padding:2px 6px;flex:none}
+  .prow .none{font-size:11px;color:#5b7099;padding:20px;text-align:center}
+  .leftfoot{padding:10px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim);line-height:1.7}
+  .leftfoot b{color:#8ee9ff}
+
+  /* ============ 右侧：控制面板 ============ */
+  .right{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;min-height:0}
+  .right::-webkit-scrollbar{width:9px}
+  .right::-webkit-scrollbar-thumb{background:#22304f;border-radius:4px}
+  .sec{background:linear-gradient(180deg,#0e1728,#111c31);border:1px solid var(--line);border-radius:13px;padding:13px 15px}
+  .sec h3{font-size:12.5px;color:var(--accent);letter-spacing:2px;margin-bottom:11px;
+          display:flex;align-items:center;gap:8px}
+  .sec h3 .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+  /* 玩家头部卡 */
+  .phead{display:flex;align-items:center;gap:14px}
+  .phead canvas{width:56px;height:56px;border-radius:10px;image-rendering:pixelated;box-shadow:0 0 0 1px #0008}
+  .phead .n{font-size:17px;font-weight:700}
+  .phead .u{font-size:11px;color:var(--dim);font-family:Consolas,monospace;margin-top:3px}
+  .phead .st{font-size:11px;margin-top:5px;display:flex;gap:7px;align-items:center}
+  .phead .st .d{width:8px;height:8px;border-radius:50%}
+  .btnrow{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}
+  button{background:#16233d;color:var(--txt);border:1px solid #2b3d61;border-radius:9px;
+    padding:8px 15px;font-size:13px;cursor:pointer;transition:.15s;font-family:inherit}
+  button:hover:not(:disabled){border-color:var(--accent);color:#7dfcff;box-shadow:0 0 12px #22d3ee33}
+  button:disabled{opacity:.38;cursor:not-allowed}
+  button.primary{background:linear-gradient(90deg,#0e7490,#0891b2);border-color:#22d3ee;font-weight:600}
+  button.danger{background:linear-gradient(90deg,#7f1d1d,#991b1b);border-color:#f87171;color:#fecaca}
+  button.danger:hover:not(:disabled){border-color:#f87171;color:#fff;box-shadow:0 0 12px #f8717144}
+  button.tp{background:linear-gradient(90deg,#5b21b6,#7c3aed);border-color:#a78bfa;color:#ede9fe;font-weight:600}
+  button.tp:hover:not(:disabled){border-color:#a78bfa;color:#fff;box-shadow:0 0 14px #a78bfa55}
+  .livepill{display:none;align-items:center;gap:7px;font-size:12px;color:#6ee7b7;
+    background:#07251a;border:1px solid #1d6b4f;border-radius:20px;padding:5px 12px}
+  .livepill.on{display:inline-flex}
+  .livepill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 #34d39988}50%{box-shadow:0 0 0 6px #34d39900}}
+
+  /* 时间轴 */
+  .tlwrap{position:relative}
+  #tl{width:100%;height:64px;display:block;border-radius:9px;background:#070d1a;
+      border:1px solid #1e2c4a;cursor:crosshair}
+  .tllabels{display:flex;justify-content:space-between;font-size:10.5px;color:#5b7099;margin-top:4px;font-family:Consolas,monospace}
+  .tlinfo{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .kv{font-size:12px;color:var(--dim)}
+  .kv b{color:#cfe3ff;font-family:Consolas,monospace;font-weight:600}
+  .dimchip{font-size:10.5px;border-radius:5px;padding:2px 7px;border:1px solid #2b5f7a;background:#0a1c28;color:#8ee9ff}
+  .dimchip.nether{border-color:#7c2d12;background:#2a0f04;color:#fdba74}
+  .dimchip.end{border-color:#4c1d95;background:#1b0b38;color:#c4b5fd}
+  .quick{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .quick button{padding:5px 11px;font-size:11.5px;border-radius:7px}
+  .tlmask{position:absolute;inset:0;background:#070d1ae0;border-radius:9px;
+    display:grid;place-items:center;font-size:12.5px;color:#7f92b8;text-align:center;line-height:1.8}
+  .tlmask.off{display:none}
+
+  /* 小地图 */
+  #mm{width:100%;height:230px;display:block;border-radius:9px;background:#060b14;border:1px solid #1e2c4a}
+  .legend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);margin-top:7px}
+  .legend .bar{flex:1;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,#3b82f6,#22d3ee,#4ade80,#facc15,#f97316,#ef4444)}
+
+  /* 开关与滑块 */
+  .fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .fx{display:flex;align-items:center;gap:9px;background:#0c1426;border:1px solid #1c2a47;
+      border-radius:9px;padding:9px 11px;cursor:pointer;user-select:none;font-size:12.5px;transition:.12s}
+  .fx:hover{border-color:#31507f}
+  .fx.on{border-color:var(--accent);background:#0b1d2c}
+  .fx input{accent-color:#22d3ee;width:15px;height:15px;cursor:pointer}
+  .rowline{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .slider{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim)}
+  input[type=range]{accent-color:#22d3ee;width:130px}
+  .sw{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s}
+  .sw:hover{transform:scale(1.12)}
+  .sw.on{border-color:#fff;box-shadow:0 0 10px currentColor}
+  .note{font-size:11px;color:#5b7099;margin-top:9px;line-height:1.6}
+
+  .statusbar{padding:8px 16px;border-top:1px solid var(--line);font-size:11px;color:#5b7099;
+    display:flex;justify-content:space-between;background:#0a111d}
+  .statusbar .esc{border:1px solid #26375a;padding:2px 8px;border-radius:5px}
+
+  /* 重开按钮 & toast */
+  .reopen{display:none;padding:14px 26px;border-radius:12px;border:1px solid #2b3d61;
+    background:#0f1729;color:#8ee9ff;cursor:pointer;font-size:14px}
+  .reopen:hover{border-color:var(--accent)}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(80px);
+    background:#0e7490;color:#fff;padding:11px 24px;border-radius:26px;font-size:14px;opacity:0;
+    transition:.3s;pointer-events:none;box-shadow:0 8px 30px #0009;z-index:99;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* 说明区 */
+  .notes{width:min(1280px,96vw);background:#0c1322;border:1px solid var(--line);border-radius:14px;padding:18px 22px}
+  .notes h2{font-size:15px;color:var(--accent);letter-spacing:2px;margin-bottom:10px}
+  .notes ul{margin-left:18px;line-height:2;font-size:13px;color:#a9c3ea}
+  .notes b{color:#e2ecff}
+  .q{margin-top:12px;padding:12px 14px;background:#101a30;border:1px solid #26406e;border-radius:10px}
+  .q .qt{color:var(--warn);font-size:13px;font-weight:700;margin-bottom:6px}
+  .q ol{margin-left:18px;line-height:1.9;font-size:12.5px;color:#a9c3ea}
+  /* ============================================================
+     硬朗主题：直角 + 低饱和石板灰 + 去荧光（后置覆盖，优先级最高）
+     ============================================================ */
+  :root{
+    --bg:#111111; --panel:#232323; --panel2:#282828; --line:#3d3d3d;
+    --txt:#dcdcdc; --dim:#8f8f8f; --accent:#9db3c4; --ok:#6aa84f; --warn:#c9a94a;
+  }
+  body{background:#0e0e0e}
+  .pagetitle{color:#9a9a9a}
+  .pagetitle b{background:none;color:#cfd8de;-webkit-text-fill-color:#cfd8de;letter-spacing:2px}
+
+  .window{border-radius:0;border-color:#4a4a4a;
+    box-shadow:0 0 0 2px #000, 0 24px 70px #000a;background:#1c1c1c}
+  .titlebar{background:#2a2a2a;border-bottom:1px solid #101010;
+    box-shadow:inset 0 1px 0 #3d3d3d}
+  .titlebar .t{color:#e4e4e4;font-weight:700}
+  .badge{border-radius:0;border-color:#565656;background:#333;color:#c2ccd3}
+  .badge.ok{border-color:#4a7039;background:#22301c;color:#9dc98a}
+  .wb{border-radius:0;background:#454545;border-color:#5a5a5a;color:#ddd;
+    box-shadow:inset 1px 1px 0 #5e5e5e, inset -1px -1px 0 #262626}
+  .wb:hover{background:#6e3535;border-color:#945050;color:#ffd9d9;box-shadow:inset 1px 1px 0 #8a4545, inset -1px -1px 0 #3a1c1c}
+
+  .left{background:#1e1e1e;border-right:1px solid #101010}
+  .searchrow input{border-radius:0;background:#141414;border-color:#4a4a4a;color:#dcdcdc}
+  .searchrow input:focus{border-color:#a8b6c2;box-shadow:none}
+  .plist .prow{border-radius:0}
+  .prow:hover{background:#292929;border-color:#3d3d3d}
+  .prow.sel{background:#31363b;border-color:#a8b6c2;box-shadow:inset 3px 0 0 var(--accent)}
+  .prow canvas{border-radius:0}
+  .prow .nm .on.live{background:var(--ok);box-shadow:none}
+  .prow .trk{background:#4a7039;color:#eaf5e4;border-radius:0}
+  .leftfoot{border-top:1px solid #101010;background:#191919}
+  .leftfoot b{color:#b9c6cf}
+
+  .sec{border-radius:0;border-color:#3d3d3d;background:#242424;
+    box-shadow:inset 0 1px 0 #2e2e2e}
+  .sec h3{color:#b9c6cf;letter-spacing:1px;padding-bottom:8px;border-bottom:1px solid #353535}
+  .phead canvas{border-radius:0}
+  .phead .n{color:#e8e8e8}
+
+  button{border-radius:0;background:#565656;border-color:#6b6b6b;color:#e6e6e6;
+    box-shadow:inset 1px 1px 0 #747474, inset -1px -1px 0 #2e2e2e;text-shadow:1px 1px 0 #00000066}
+  button:hover:not(:disabled){background:#6c7b8f;border-color:#9db3c4;color:#fff;
+    box-shadow:inset 1px 1px 0 #8797ab, inset -1px -1px 0 #39434f;text-shadow:1px 1px 0 #00000066}
+  button.primary{background:#3e6a39;border-color:#55854f}
+  button.primary:hover:not(:disabled){background:#4b7d45;border-color:#7aa873}
+  button.danger{background:#6e3434;border-color:#8f4a4a;color:#f3dede}
+  button.danger:hover:not(:disabled){background:#84403f;border-color:#b06a66;color:#fff}
+  button.tp{background:#4d4d70;border-color:#6a6a96;color:#e6e6f2}
+  button.tp:hover:not(:disabled){background:#5f5f8c;border-color:#9494c4;color:#fff}
+
+  .livepill{border-radius:0;background:#22301c;border-color:#4a7039;color:#9dc98a}
+  .livepill .dot{background:var(--ok);animation:none;box-shadow:none}
+  #tl{border-radius:0;border-color:#3d3d3d;background:#171717}
+  #mm{border-radius:0;border-color:#3d3d3d;background:#171717}
+  .tlmask{border-radius:0;background:#1a1a1ae6}
+  .tllabels{color:#7a7a7a}
+  .dimchip{border-radius:0}
+  .fx{border-radius:0;background:#1e1e1e;border-color:#3d3d3d}
+  .fx:hover{border-color:#6a7683}
+  .fx.on{border-color:var(--accent);background:#2b3136;box-shadow:none}
+  .fx input{accent-color:#9db3c4}
+  .sw{border-radius:0;border-color:transparent}
+  .sw.on{border-color:#e0e0e0;box-shadow:none;outline:1px solid #000}
+  input[type=range]{accent-color:#9db3c4}
+  .quick button{border-radius:0}
+  .statusbar{background:#191919;border-top:1px solid #101010;color:#7a7a7a}
+  .statusbar .esc{border-radius:0;border-color:#4a4a4a}
+  .toast{border-radius:0;background:#3e6a39;box-shadow:0 8px 26px #000b;color:#f0f7ee}
+  .reopen{border-radius:0;background:#1c1c1c;border-color:#4a4a4a;color:#b9c6cf}
+  .notes{border-radius:0;background:#171717;border-color:#3d3d3d}
+  .notes h2{color:#9db3c4}
+  .notes ul{color:#b0b0b0}
+  .notes b{color:#e0e0e0}
+  .q{background:#1e1e1e;border-color:#4a4a4a;border-radius:0}
+  .q .qt{color:#c9a94a}
+  .legend .bar{border-radius:0;filter:saturate(.85) brightness(.9)}
+  .rowline .slider b{color:#d8d8d8 !important}
+</style>
+</head>
+<body>
+
+<div class="pagetitle"><b>GlowTrack</b> 玩家轨迹追踪 · GUI 交互原型（纯前端模拟，用于确认布局与交互）</div>
+
+<div class="window" id="win">
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="t">📡 玩家轨迹追踪
+      <span class="badge ok" id="modeBadge">服务端模式</span>
+      <span class="badge">OP ✓ Lv4</span>
+      <span class="badge" id="xaeroBadge">Xaero ✓</span>
+    </div>
+    <div class="winbtns">
+      <div class="wb" id="btnClose" title="关闭">✕</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- 左：玩家列表 -->
+    <aside class="left">
+      <div class="searchrow">
+        <input id="q" placeholder="🔍 搜索玩家..." autocomplete="off">
+      </div>
+      <div class="plist" id="plist"></div>
+      <div class="leftfoot">
+        白名单玩家 <b id="wcount">-</b> · 在线 <b id="oncount">-</b><br>
+        <span id="trackHint">数据源：server whitelist.json · 选中后在右侧开启追踪</span>
+      </div>
+    </aside>
+
+    <!-- 右：控制面板 -->
+    <main class="right" id="right">
+
+      <!-- 1. 玩家信息 + 追踪开关 -->
+      <section class="sec">
+        <h3>玩家
+          <span class="r"><span class="livepill" id="livePill"><span class="dot"></span>追踪中 · 实时</span></span>
+        </h3>
+        <div class="phead">
+          <canvas id="bigHead" width="56" height="56"></canvas>
+          <div>
+            <div class="n" id="pName">—</div>
+            <div class="u" id="pUuid">—</div>
+            <div class="st"><span class="d" id="pDot" style="background:#374151"></span><span id="pStatus">未选择玩家</span></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <button class="primary" id="btnStart" disabled>▶ 开始追踪</button>
+          <button class="danger" id="btnStop" disabled>■ 停止追踪</button>
+          <span class="kv" id="trkStat" style="align-self:center"></span>
+        </div>
+      </section>
+
+      <!-- 2. 时间轴回看 + 传送 -->
+      <section class="sec">
+        <h3>时间轴回看 & 传送
+          <span class="r">
+            <span class="kv" id="scrubMode">实时跟随</span>
+            <button id="btnLive" disabled style="padding:5px 12px;font-size:12px">⏩ 回到实时</button>
+          </span>
+        </h3>
+        <div class="tlwrap">
+          <canvas id="tl"></canvas>
+          <div class="tlmask off" id="tlMask">尚未加载轨迹<br>点击「▶ 开始追踪」后显示该玩家的移动轨迹</div>
+        </div>
+        <div class="tllabels"><span id="tlStart">--:--</span><span id="tlMid"></span><span id="tlEnd">--:--</span></div>
+        <div class="tlinfo">
+          <span class="kv">时刻 <b id="scrubTime">--:--:--</b></span>
+          <span class="dimchip" id="scrubDim">-</span>
+          <span class="kv">坐标 <b id="scrubPos">—</b></span>
+          <span class="r" style="margin-left:auto"></span>
+          <button class="tp" id="btnTp" disabled>📍 传送到该时刻位置</button>
+        </div>
+        <div class="quick">
+          <button data-q="0" disabled>⏮ 起点</button>
+          <button data-q="0.25" disabled>25%</button>
+          <button data-q="0.5" disabled>50%</button>
+          <button data-q="0.75" disabled>75%</button>
+          <button data-q="1" disabled>终点 ⏭</button>
+        </div>
+        <div class="note">💡 拖动时间轴回看任意时刻的位置 → 点「传送」一键 TP 过去（服务端校验 OP 权限；跨维度会同步切换维度）</div>
+      </section>
+
+      <!-- 3. 轨迹总览小地图 -->
+      <section class="sec">
+        <h3>轨迹总览（俯视投影）<span class="r kv" id="mmStat"></span></h3>
+        <canvas id="mm"></canvas>
+        <div class="legend"><span>慢</span><div class="bar"></div><span>快</span>
+          <span style="margin-left:10px">颜色 = 速度热力（彩虹色带）</span></div>
+      </section>
+
+      <!-- 4. 渲染样式 -->
+      <section class="sec">
+        <h3>世界内渲染样式</h3>
+        <div class="fxgrid" id="fxgrid">
+          <label class="fx on"><input type="checkbox" id="f_heat" checked>🔥 速度热力</label>
+          <label class="fx on"><input type="checkbox" id="f_glow" checked>💡 发光光晕</label>
+          <label class="fx on"><input type="checkbox" id="f_wall" checked>👓 穿墙显示</label>
+          <label class="fx on"><input type="checkbox" id="f_time" checked>⏱ 时间刻度</label>
+          <label class="fx on"><input type="checkbox" id="f_dash" checked>〰 脉冲虚线</label>
+        </div>
+        <div class="rowline">
+          <span class="kv">配色</span>
+          <div class="sw on" data-t="rainbow" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);color:#fff" title="彩虹（+热力融合）"></div>
+          <div class="sw" data-t="cyan" style="background:linear-gradient(135deg,#0e4f5e,#7dfcff);color:#22d3ee"></div>
+          <div class="sw" data-t="green" style="background:linear-gradient(135deg,#0f3d22,#86efac);color:#4ade80"></div>
+          <div class="sw" data-t="magenta" style="background:linear-gradient(135deg,#4a1052,#f0abfc);color:#e879f9"></div>
+          <div class="sw" data-t="lava" style="background:linear-gradient(135deg,#4a2008,#fdba74);color:#fb923c"></div>
+          <span class="slider" style="margin-left:8px">线宽 <input type="range" id="lw" min="1" max="10" step="0.5" value="5"><b id="lwv" style="color:#cfe3ff">5.0</b></span>
+        </div>
+      </section>
+
+      <!-- 5. 采样设置 -->
+      <section class="sec">
+        <h3>采样设置 <span class="r kv">仅 OP 可调 · 实时生效</span></h3>
+        <div class="rowline">
+          <span class="slider">采样间隔 <input type="range" id="iv" min="0.2" max="5" step="0.1" value="1"><b id="ivv" style="color:#cfe3ff">1.0s</b></span>
+          <span class="slider">保留天数 <input type="range" id="rd" min="1" max="30" step="1" value="7"><b id="rdv" style="color:#cfe3ff">7天</b></span>
+          <span class="slider">拐弯补点 <input type="range" id="ta" min="5" max="90" step="5" value="25"><b id="tav" style="color:#cfe3ff">25°</b></span>
+        </div>
+      </section>
+
+      <!-- 6. 数据与地图 -->
+      <section class="sec">
+        <h3>数据 & 地图联动</h3>
+        <div class="btnrow" style="margin-top:0">
+          <button id="btnExport">⬇ 导出轨迹 (json/csv)</button>
+          <button id="btnImport">⬆ 导入轨迹</button>
+          <button id="btnXaero">🗺 在 Xaero 地图上高亮</button>
+          <button id="btnClear">🗑 清除该玩家轨迹</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="statusbar">
+    <span>左键选中玩家 · 拖动时间轴回看 · 快捷键 <b>K</b> 打开界面 · 命令 <b>/gt</b></span>
+    <span class="esc">Esc 关闭</span>
+  </div>
+</div>
+
+<button class="reopen" id="reopen">📡 重新打开追踪界面（模拟按 K）</button>
+
+<div class="toast" id="toast"></div>
+
+<!-- 设计说明 -->
+<div class="notes">
+  <h2>原型说明 · 请重点确认下方问题</h2>
+  <ul>
+    <li><b>按需追踪</b>：打开 GUI 只显示白名单列表；选中玩家 → 点「开始追踪」才加载并显示其轨迹（原型中用 0.5s 模拟服务端加载）。</li>
+    <li><b>时间轴回看</b>：横轴为该玩家最近 12 小时；彩色段=有轨迹记录（颜色=速度），空白=无记录（离线/未追踪）；顶部细条标出下界/末地时段。</li>
+    <li><b>一键传送</b>：拖动/点击时间轴选定时刻 → 「📍 传送到该时刻位置」，显示目标坐标并模拟传送；也可用 25%/50%/75% 快捷跳点。</li>
+    <li><b>实时跟随</b>：追踪中时间轴自动推进（原型加速演示）；手动拖动即进入回看点位，点「⏩ 回到实时」恢复。</li>
+    <li><b>渲染样式</b>：5 项开关 + 彩虹/热力融合配色 + 线宽，改动即时作用于小地图预览（游戏内作用于世界 3D 轨迹线与 Xaero 地图）。</li>
+  </ul>
+  <div class="q">
+    <div class="qt">需要你拍板的 3 个问题：</div>
+    <ol>
+      <li><b>记录时机</b>：服务端是否对所有白名单玩家<b>持续后台记录</b>（这样时间轴能回看任意历史，包括没在 GUI 里追踪的时段）？还是只在你点「开始追踪」后才开始录？</li>
+      <li><b>传送安全</b>：历史点 TP 是否需要<b>二次确认弹窗</b> / 冷却时间？跨维度 TP（下界/末地）是否允许？</li>
+      <li><b>多人对比</b>：是否需要同时追踪多名玩家、轨迹叠加对比显示？</li>
+    </ol>
+  </div>
+</div>
+
+<div class="toast" id="toast2"></div>
+
+<script>
+/* ================= 工具 ================= */
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function fmtTime(ms){const d=new Date(ms);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')}
+function fmtHM(ms){const d=new Date(ms);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
+/* ================= 像素头像 ================= */
+const SKIN=['#e8b48a','#d99a6c','#c68642','#8d5524','#f1c9a5'];
+const HAIR=['#2b1b0e','#4a2c12','#0f0f0f','#7a4a1e','#5a3a8a','#b83b3b','#3b6ab8'];
+function drawHead(cv,name){
+  const x=cv.getContext('2d'), S=cv.width/8, h=hash(name), r=rng(h);
+  const skin=SKIN[h%SKIN.length], hair=HAIR[(h>>3)%HAIR.length];
+  x.imageSmoothingEnabled=false;
+  x.fillStyle=skin; x.fillRect(0,0,cv.width,cv.height);
+  x.fillStyle=hair; x.fillRect(0,0,cv.width,S*2); x.fillRect(0,S*2,S,S); x.fillRect(S*7,S*2,S,S);
+  if(r()>0.5){x.fillRect(S,S*2,S*6,S)}          // 刘海变化
+  x.fillStyle='#fff'; x.fillRect(S*2,S*4,S,S); x.fillRect(S*5,S*4,S,S);
+  x.fillStyle= r()>0.5?'#3b6ab8':'#2f6b3b';
+  x.fillRect(S*2+S*0.25,S*4+S*0.25,S*0.5,S*0.5); x.fillRect(S*5+S*0.25,S*4+S*0.25,S*0.5,S*0.5);
+  x.fillStyle='rgba(0,0,0,0.25)'; x.fillRect(S*3,S*6,S*2,S*0.5);  // 嘴
+}
+
+/* ================= 模拟数据 ================= */
+const NAMES=['Notch','jeb_','Dinnerbone','HypixelFan31','一只屑','Alex_27','Steve_MC',
+             'RedstoneGuru','EnderEyes99','BuildMaster_ZH','Herobrine','CraftLover88'];
+const now0=Date.now();
+const players=NAMES.map((name,i)=>{
+  const h=hash(name), r=rng(h);
+  const online=r()>0.35;
+  return {name, uuid:`${h.toString(16).padStart(8,'0')}-4e94-4726-a5be-fca90e38aaf5`,
+    online, lastSeen: online?now0:now0-Math.floor(r()*40)*3600e3,
+    tracking:false, traj:null};
+});
+$('wcount').textContent=players.length;
+$('oncount').textContent=players.filter(p=>p.online).length;
+
+const HOUR=3600e3, SPAN=12*HOUR;
+function genTraj(p){
+  const r=rng(hash(p.name)^0x9e37);
+  const end=now0, start=end-SPAN;
+  const t0=start+ r()*1.5*HOUR;
+  const pts=[]; let t=t0, x=(r()-0.5)*600, z=(r()-0.5)*600, y=68;
+  let ang=r()*Math.PI*2;
+  // 两段下界/末地 + 一段空洞(离线)
+  const netherS=t0+3*HOUR+r()*HOUR, netherE=netherS+0.8*HOUR;
+  const endS=t0+7.5*HOUR+r()*0.5*HOUR, endE=endS+0.6*HOUR;
+  const offS=t0+5.2*HOUR, offE=offS+1.1*HOUR;
+  while(t<end){
+    if(t>offS&&t<offE){t=offE;continue}                     // 离线空洞
+    let dim='minecraft:overworld';
+    if(t>netherS&&t<netherE){dim='minecraft:the_nether'}
+    else if(t>endS&&t<endE){dim='minecraft:the_end'}
+    ang+=(r()-0.5)*0.7;
+    const base= dim==='minecraft:overworld'?2.3:1.5;
+    const speed=Math.max(0.02, base*(0.3+r()*1.3)+Math.sin(t/700e3)*0.8);
+    const step=speed*20;                                  // tick 间距位移
+    x+=Math.cos(ang)*step; z+=Math.sin(ang)*step;
+    x=Math.max(-700,Math.min(700,x)); z=Math.max(-700,Math.min(700,z));
+    y= dim==='minecraft:the_nether'? 62+r()*28 : dim==='minecraft:the_end'? 58+r()*10 : 66+Math.sin(x/47)*5+Math.cos(z/39)*4+r()*1.5;
+    pts.push({t,x,y,z,dim,speed});
+    t+=15e3;                                               // 模拟 15s 采样
+  }
+  return {pts,start,end,netherS,netherE,endS,endE,offS,offE};
+}
+
+/* ================= 左侧列表 ================= */
+let sel=null, mode='idle';   // idle | loading | live | review
+function renderList(){
+  const q=$('q').value.trim().toLowerCase();
+  const box=$('plist'); box.innerHTML='';
+  const list=players.filter(p=>p.name.toLowerCase().includes(q));
+  if(!list.length){box.innerHTML='<div class="none">没有匹配的白名单玩家</div>';return}
+  for(const p of list){
+    const row=document.createElement('div');
+    row.className='prow'+(sel===p?' sel':'');
+    const cv=document.createElement('canvas');cv.width=34;cv.height=34;drawHead(cv,p.name);
+    const ago=Math.floor((now0-p.lastSeen)/HOUR);
+    row.appendChild(cv);
+    const info=document.createElement('div');info.className='info';
+    info.innerHTML=`<div class="nm"><span class="on ${p.online?'live':''}"></span>${p.name}</div>
+      <div class="sub">${p.online?'在线':'最后在线 '+ago+'小时前'}${p.tracking?' · 追踪中':''}</div>`;
+    row.appendChild(info);
+    if(p.tracking){const b=document.createElement('span');b.className='trk';b.textContent='TRACK';row.appendChild(b)}
+    row.onclick=()=>select(p);
+    box.appendChild(row);
+  }
+}
+$('q').addEventListener('input',renderList);
+
+/* ================= 右侧面板 ================= */
+function select(p){
+  sel=p;
+  drawHead($('bigHead'),p.name);
+  $('pName').textContent=p.name;
+  $('pUuid').textContent='UUID '+p.uuid;
+  $('pDot').style.background=p.online?'var(--ok)':'#374151';
+  $('pStatus').textContent=p.online?'在线':'离线（仍可查看历史轨迹）';
+  updateModeUI(); renderList();
+  if(p.traj) enterLive(); else resetTimeline();
+}
+function updateModeUI(){
+  const tracking=!!sel&&sel.tracking;
+  $('livePill').classList.toggle('on',mode==='live');
+  $('btnStart').disabled=!sel||sel.tracking||mode==='loading';
+  $('btnStop').disabled=!tracking;
+  $('tlMask').classList.toggle('off',mode!=='idle');
+  $('scrubMode').textContent = mode==='live'?'实时跟随': mode==='review'?'回看模式':'未加载';
+  $('btnLive').disabled = mode!=='review';
+  $('btnTp').disabled = mode==='idle';
+  document.querySelectorAll('.quick button').forEach(b=>b.disabled=mode==='idle');
+  $('trkStat').textContent = tracking&&sel.traj? `已记录 ${sel.traj.pts.length.toLocaleString()} 点 · ${((sel.traj.end-sel.traj.start)/HOUR).toFixed(1)}h`:'';
+  $('trackHint').textContent = tracking? '追踪中：服务端持续向本客户端推送增量' : '数据源：server whitelist.json · 选中后在右侧开启追踪';
+}
+
+/* ---- 开始/停止追踪 ---- */
+$('btnStart').onclick=()=>{
+  if(!sel)return; mode='loading'; updateModeUI();
+  $('tlMask').classList.remove('off'); $('tlMask').textContent=`正在从服务端加载 ${sel.name} 的轨迹数据 ...`;
+  setTimeout(()=>{
+    sel.traj=genTraj(sel); sel.tracking=true;
+    enterLive(); updateModeUI(); renderList();
+    toast(`已开始追踪 ${sel.name} · 加载 ${sel.traj.pts.length.toLocaleString()} 个轨迹点`);
+  },600);
+};
+$('btnStop').onclick=()=>{
+  if(!sel)return; sel.tracking=false;
+  mode='idle'; sel.traj=null; updateModeUI(); renderList();
+  drawTimeline(); toast(`已停止追踪 ${sel.name}，轨迹数据已保存到磁盘`);
+};
+
+/* ---- 实时跟随 / 回看 ---- */
+let scrubT=0, liveT=0, simSpeed=60;   // 原型加速：1真实秒=60模拟秒
+function enterLive(){ mode='live'; scrubT=sel.traj.end; liveT=sel.traj.end; updateModeUI(); drawTimeline(); }
+$('btnLive').onclick=enterLive;
+document.querySelectorAll('.quick button').forEach(b=>b.onclick=()=>{
+  if(!sel||!sel.traj)return;
+  const q=+b.dataset.q;
+  setScrub(sel.traj.start+(sel.traj.end-sel.traj.start)*q);
+});
+function setScrub(t){
+  if(!sel||!sel.traj)return;
+  scrubT=Math.max(sel.traj.start,Math.min(sel.traj.end,t));
+  if(mode==='live')mode='review', updateModeUI();
+  updateScrubUI(); drawTimeline(); drawMM();
+}
+function nearestPoint(t){
+  const pts=sel.traj.pts; let lo=0,hi=pts.length-1;
+  while(lo<hi){const m=(lo+hi)>>1; if(pts[m].t<t)lo=m+1; else hi=m}
+  return pts[lo];
+}
+function updateScrubUI(){
+  if(!sel||!sel.traj)return;
+  const p=nearestPoint(scrubT);
+  $('scrubTime').textContent=fmtTime(p.t);
+  $('scrubPos').textContent=`${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`;
+  const d=$('scrubDim');
+  d.textContent = p.dim==='minecraft:the_nether'?'下界':p.dim==='minecraft:the_end'?'末地':'主世界';
+  d.className='dimchip'+(p.dim==='minecraft:the_nether'?' nether':p.dim==='minecraft:the_end'?' end':'');
+  $('mmStat').textContent=`总 ${sel.traj.pts.length.toLocaleString()} 点 · 当前速度 ${p.speed.toFixed(2)} 格/t`;
+}
+
+/* ---- 时间轴 ---- */
+const tl=$('tl'), tlc=tl.getContext('2d');
+function sizeTl(){const r=tl.getBoundingClientRect();tl.width=r.width*2;tl.height=64*2;tlc.scale(2,2);drawTimeline()}
+function drawTimeline(){
+  const W=tl.width/2,H=64; tlc.clearRect(0,0,W,H);
+  if(!sel||!sel.traj){tlc.fillStyle='#1a2438';tlc.fillRect(0,0,W,H);return}
+  const {pts,start,end}=sel.traj, span=end-start;
+  const X=t=>(t-start)/span*(W-8)+4;
+  // 维度带
+  const bands=[[sel.traj.netherS,sel.traj.netherE,'#f97316'],[sel.traj.endS,sel.traj.endE,'#a78bfa']];
+  for(const [a,b,c] of bands){tlc.fillStyle=c;tlc.globalAlpha=.8;tlc.fillRect(X(a),3,X(b)-X(a),5);tlc.globalAlpha=1}
+  // 覆盖段（按 60s 分桶取平均速度着色）
+  const bucket=60e3, map=new Map();
+  for(const p of pts){const k=Math.floor(p.t/bucket);
+    const e=map.get(k); if(e){e.s+=p.speed;e.n++} else map.set(k,{s:p.speed,n:1,t:p.t})}
+  for(const {s,n,t} of map.values()){
+    const sp=s/n, hue=220-Math.max(0,Math.min(1,sp/3.2))*220;
+    tlc.fillStyle=`hsl(${hue} 85% 52%)`;
+    tlc.fillRect(X(t)-1,14,Math.max(2,(bucket/span)*(W-8)),34);
+  }
+  // 游标
+  const gx=X(scrubT);
+  tlc.fillStyle='#fff'; tlc.fillRect(gx-1,8,2,46);
+  tlc.beginPath(); tlc.moveTo(gx-6,8); tlc.lineTo(gx+6,8); tlc.lineTo(gx,16); tlc.closePath(); tlc.fill();
+  $('tlStart').textContent=fmtHM(start); $('tlEnd').textContent=fmtHM(end);
+  $('tlMid').textContent=`最近12小时 · 空白段 = 无记录`;
+}
+let dragging=false;
+function tlPick(ev){
+  const r=tl.getBoundingClientRect();
+  const f=Math.max(0,Math.min(1,(ev.clientX-r.left-4)/(r.width-8)));
+  setScrub(sel.traj.start+f*(sel.traj.end-sel.traj.start));
+}
+tl.addEventListener('pointerdown',e=>{if(!sel||!sel.traj)return;dragging=true;tl.setPointerCapture(e.pointerId);tlPick(e)});
+tl.addEventListener('pointermove',e=>{if(dragging)tlPick(e)});
+tl.addEventListener('pointerup',()=>dragging=false);
+
+/* ---- 传送 ---- */
+$('btnTp').onclick=()=>{
+  if(!sel||!sel.traj)return;
+  const p=nearestPoint(scrubT);
+  const dim=p.dim==='minecraft:the_nether'?'下界':p.dim==='minecraft:the_end'?'末地':'主世界';
+  toast(`📍 已传送 ${'你'} → ${sel.name} 在 ${fmtTime(p.t)} 的位置：${dim} [${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}]`);
+  mmFlash=1;
+};
+
+/* ================= 小地图 ================= */
+const mm=$('mm'), mmc=mm.getContext('2d');
+let mmFlash=0;
+function sizeMM(){const r=mm.getBoundingClientRect();mm.width=r.width*2;mm.height=230*2;mmc.scale(2,2);drawMM()}
+function heatCol(sp){const hue=220-Math.max(0,Math.min(1,sp/3.2))*220;return `hsl(${hue} 88% 58%)`}
+const THEME={rainbow:null,cyan:'#22d3ee',green:'#4ade80',magenta:'#e879f9',lava:'#fb923c'};
+let theme='rainbow';
+function drawMM(){
+  const W=mm.width/2,H=230; mmc.clearRect(0,0,W,H);
+  mmc.fillStyle='#060b14'; mmc.fillRect(0,0,W,H);
+  if(!sel||!sel.traj)return;
+  const pts=sel.traj.pts;
+  let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
+  for(const p of pts){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z)}
+  const pad=30, sx=(W-pad*2)/Math.max(1,maxX-minX), sz=(H-pad*2)/Math.max(1,maxZ-minZ);
+  const s=Math.min(sx,sz);
+  const PX=p=>W/2+(p.x-(minX+maxX)/2)*s, PZ=p=>H/2+(p.z-(minZ+maxZ)/2)*s;
+  // 网格
+  mmc.strokeStyle='#12203a';mmc.lineWidth=1;
+  for(let g=0;g<W;g+=40){mmc.beginPath();mmc.moveTo(g,0);mmc.lineTo(g,H);mmc.stroke();
+    mmc.beginPath();mmc.moveTo(0,g);mmc.lineTo(W,g);mmc.stroke();}
+  const dashOn=$('f_dash').checked, glowOn=$('f_glow').checked;
+  mmc.lineDashOffset=-(performance.now()/40)%32;
+  for(let i=1;i<pts.length;i++){
+    const a=pts[i-1],b=pts[i];
+    if(a.dim!==b.dim)continue;
+    if(b.t<sel.traj.offS||b.t>sel.traj.offE){}
+    mmc.strokeStyle=($('f_heat').checked?heatCol(b.speed):(THEME[theme]||'#22d3ee'));
+    mmc.lineWidth=1.2+($('lw').value/10)*2.2;
+    if(glowOn){mmc.shadowBlur=6;mmc.shadowColor=mmc.strokeStyle}else mmc.shadowBlur=0;
+    if(dashOn){mmc.setLineDash([5,4])}else mmc.setLineDash([]);
+    mmc.globalAlpha= b.dim!=='minecraft:overworld'?0.95:1;
+    mmc.beginPath();mmc.moveTo(PX(a),PZ(a));mmc.lineTo(PX(b),PZ(b));mmc.stroke();
+  }
+  mmc.setLineDash([]);mmc.shadowBlur=0;mmc.globalAlpha=1;
+  // 起终点
+  const f=pts[0],l=pts[pts.length-1];
+  mmc.fillStyle='#34d399';mmc.beginPath();mmc.arc(PX(f),PZ(f),4,0,7);mmc.fill();
+  mmc.fillStyle='#f87171';mmc.beginPath();mmc.arc(PX(l),PZ(l),4,0,7);mmc.fill();
+  // 游标点
+  const cp=nearestPoint(scrubT);
+  mmc.fillStyle='#fff';mmc.beginPath();mmc.arc(PX(cp),PZ(cp),4.5,0,7);mmc.fill();
+  mmc.strokeStyle='#fff';mmc.lineWidth=1.5;
+  mmc.beginPath();mmc.arc(PX(cp),PZ(cp),8+mmFlash*10,0,7);mmc.stroke();
+  if(mmFlash>0)mmFlash=Math.max(0,mmFlash-0.04);
+  mmc.fillStyle='#7f92b8';mmc.font='10px Consolas';mmc.textAlign='left';
+  mmc.fillText('起点',PX(f)+7,PZ(f)+3);mmc.fillText('终点',PX(l)+7,PZ(l)+3);
+}
+
+/* ================= 渲染样式交互 ================= */
+document.querySelectorAll('.fx input').forEach(i=>i.addEventListener('change',()=>{
+  i.closest('.fx').classList.toggle('on',i.checked); drawMM();
+}));
+document.querySelectorAll('.sw').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on'); theme=el.dataset.t; drawMM();
+});
+$('lw').oninput=e=>{$('lwv').textContent=(+e.target.value).toFixed(1);drawMM()};
+$('iv').oninput=e=>$('ivv').textContent=(+e.target.value).toFixed(1)+'s';
+$('rd').oninput=e=>$('rdv').textContent=e.target.value+'天';
+$('ta').oninput=e=>$('tav').textContent=e.target.value+'°';
+$('iv').onchange=()=>toast(`采样间隔已改为 ${$('iv').value}s（已实时同步到服务端配置）`);
+$('rd').onchange=()=>toast(`历史保留天数已改为 ${$('rd').value} 天`);
+
+/* ================= 其它按钮 ================= */
+$('btnExport').onclick=()=>toast(`⬇ 已导出 ${sel?sel.name:'全部'} 轨迹 → glowtrack_${sel?sel.name:'export'}.json（同时支持 csv）`);
+$('btnImport').onclick=()=>toast('⬆ 打开文件选择器（原型模拟）：导入 json/csv 轨迹并按时间去重合并');
+$('btnXaero').onclick=()=>toast('🗺 已在 Xaero 世界地图上高亮该玩家轨迹（Mixin 注入 GuiMap 绘制）');
+$('btnClear').onclick=()=>toast('🗑 已清除（原型模拟）：需二次确认后删除该玩家磁盘轨迹');
+$('btnClose').onclick=closeWin;
+$('reopen').onclick=()=>{$('win').classList.remove('hidden');$('reopen').style.display='none'};
+function closeWin(){$('win').classList.add('hidden');$('reopen').style.display='inline-block';
+  toast('已关闭界面（游戏内按 Esc / 快捷键 K 重新打开）')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeWin()});
+
+/* ================= 主循环 ================= */
+function loop(){
+  if(mode==='live'&&sel&&sel.traj){
+    liveT=Math.min(sel.traj.end, liveT+16*simSpeed);
+    scrubT=liveT;
+    if(liveT>=sel.traj.end)liveT=sel.traj.end;
+    updateScrubUI(); drawTimeline();
+  }
+  drawMM();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize',()=>{sizeTl();sizeMM()});
+renderList(); select(players[0]); sizeTl(); sizeMM(); loop();
+</script>
+</body>
+</html>

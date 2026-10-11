@@ -1,0 +1,17 @@
+{
+  "key.categories.glowtrack": "GlowTrack Player Tracker",
+  "key.glowtrack.open": "Open Tracker Screen",
+  "glowtrack.title": "Player Trajectory Tracker",
+  "glowtrack.gui.start": "Start Tracking",
+  "glowtrack.gui.stop": "Stop Tracking",
+  "glowtrack.gui.teleport": "Teleport to Time",
+  "glowtrack.gui.search": "Search players...",
+  "glowtrack.gui.no_permission": "No permission to use the tracker",
+  "glowtrack.gui.loaded_points": "Loaded %s track points",
+  "glowtrack.gui.select_hint": "Select a whitelisted player on the left",
+  "glowtrack.gui.timeline_hint": "Drag here to review past moments",
+  "glowtrack.mode.server": "Server Mode",
+  "glowtrack.mode.local": "Local Observation Mode",
+  "glowtrack.teleport.done": "Teleported to %s at [%s]",
+  "glowtrack.teleport.empty": "No trajectory data for this player"
+}
