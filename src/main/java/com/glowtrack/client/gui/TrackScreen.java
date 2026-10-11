@@ -114,10 +114,14 @@ public class TrackScreen extends Screen {
         addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16, "地图",
                 () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); }));
 
-        addRenderableWidget(FlatButton.of(x, yTele, w, 20,
+        addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
                 Component.literal("📍 传送至游标时刻"), b -> teleport()));
+        addRenderableWidget(FlatButton.of(x + col2 + 6, yTele, col2, 20,
+                Component.literal("⏮ 回到最新"), b -> {
+                    ClientTrackState.get().setScrubRatio(1.0);
+                    ClientTrackState.get().snapViewToLatest();
+                }));
 
-        // 一行两滑块：时间点间隔(秒) | 保留天数
         addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, "时间点",
                 () -> (ClientSettings.get().timePointSeconds - 5) / 295.0,
                 v -> { ClientSettings.get().timePointSeconds = (int) Math.round(5 + v * 295); ClientSettings.get().save(); },
@@ -148,6 +152,7 @@ public class TrackScreen extends Screen {
         if (ClientTrackState.get().isServerMode())
             ClientTrackState.sendToServer(new Payloads.StartTracking(selected.id(), ClientSettings.get().retentionDays));
         ClientTrackState.get().setScrubRatio(1.0);
+        ClientTrackState.get().snapViewToLatest();
     }
 
     private void stopTrack() {
@@ -160,8 +165,8 @@ public class TrackScreen extends Screen {
     private void teleport() {
         List<TrackPoint> pts = ClientTrackState.get().points();
         if (selected == null || pts.isEmpty()) return;
-        int idx = clamp((int) Math.round(ClientTrackState.get().scrubRatio() * (pts.size() - 1)), 0, pts.size() - 1);
-        ClientTrackState.sendToServer(new Payloads.TeleportTo(selected.id(), pts.get(idx).timeMillis()));
+        TrackPoint target = cursor(pts);
+        ClientTrackState.sendToServer(new Payloads.TeleportTo(selected.id(), target.timeMillis()));
     }
 
     private void exportTrack() {
@@ -316,8 +321,18 @@ public class TrackScreen extends Screen {
         return "主世界";
     }
 
+    /** 游标解析：scrubRatio 视为时间比例（与时间轴绘制一致），二分查找最接近该时刻的点。 */
     private TrackPoint cursor(List<TrackPoint> pts) {
-        return pts.get(clamp((int) Math.round(ClientTrackState.get().scrubRatio() * (pts.size() - 1)), 0, pts.size() - 1));
+        long t0 = pts.get(0).timeMillis(), t1 = pts.get(pts.size() - 1).timeMillis();
+        long target = t0 + (long) (ClientTrackState.get().scrubRatio() * (double) (t1 - t0));
+        int lo = 0, hi = pts.size() - 1;
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            if (pts.get(mid).timeMillis() < target) lo = mid + 1; else hi = mid;
+        }
+        if (lo > 0 && Math.abs(pts.get(lo - 1).timeMillis() - target)
+                <= Math.abs(pts.get(lo).timeMillis() - target)) lo--;
+        return pts.get(lo);
     }
 
     // ---- 交互 ----

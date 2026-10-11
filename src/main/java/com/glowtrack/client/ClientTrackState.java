@@ -109,6 +109,11 @@ public final class ClientTrackState {
         viewEndRatio = Math.max(viewSpanRatio, Math.min(1.0, viewEndRatio + deltaRatio));
     }
 
+    /** 视图窗口跳到最新（开始追踪新目标时调用）。 */
+    public void snapViewToLatest() {
+        viewEndRatio = 1.0;
+    }
+
     /** 停止追踪：清空当前目标与轨迹，同时移除追踪标记（修复泄漏）。 */
     public void clearTracking() {
         if (tracked != null) trackedSet.remove(tracked);
