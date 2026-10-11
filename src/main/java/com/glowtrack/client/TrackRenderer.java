@@ -106,6 +106,7 @@ public final class TrackRenderer {
     /**
      * 画一条连续轨迹线。每个 run 用连续条带一次画完（不断跳顶点）。
      * 主线层用逐顶点亮度波制造流动脉冲，发光层保持均匀。
+     * 长直线段自动抽稀（共线点距离线 > 0.05 才保留），千点轨迹不卡帧。
      */
     private static void drawLine(PoseStack pose, MultiBufferSource.BufferSource buffers,
                                  List<TrackPoint> points, List<int[]> runs,
@@ -119,11 +120,20 @@ public final class TrackRenderer {
             int a0 = run[0], a1 = run[1];
             if (a1 - a0 < 2) continue;
             double cumDist = 0;   // 沿路径累计距离
-            // 逐顶点写入，保持条带连续
+            // 逐顶点写入，保持条带连续；跳过与前后点近似共线的冗余点（视觉无差，省大量顶点）
+            int prevKept = a0;
             for (int i = a0; i < a1; i++) {
                 TrackPoint p = points.get(i);
                 float y = use3d ? (float) p.y() : (float) flatY;
                 if (i > a0) cumDist += points.get(i - 1).distanceTo(p);
+                // 共线抽稀：当前点与保留的前一点、后一点近似共线（偏差<0.05格）则跳过绘制，
+                // 但至少保留段首/段尾/每8个点一个，保证曲线细节与标签锚点不丢
+                if (i > a0 && i < a1 - 1 && (i - prevKept) < 8) {
+                    TrackPoint prev = points.get(prevKept);
+                    TrackPoint next = points.get(Math.min(i + 1, a1 - 1));
+                    if (perpDist(prev, p, next) < 0.05) continue;
+                }
+                prevKept = i;
                 // 彩虹：每 3 格距离走完一轮色环（快速流动的彩色）
                 float u = (float) ((cumDist / 3.0) % 1.0);
                 float[] c = hsvToRgb(u, 0.9f, 0.65f);
@@ -137,6 +147,17 @@ public final class TrackRenderer {
                    .setColor(c[0], c[1], c[2], a);
             }
         }
+    }
+
+    /** 点 p 到线段 a-b 的垂直距离（用于共线抽稀）。 */
+    private static double perpDist(TrackPoint a, TrackPoint p, TrackPoint b) {
+        double abx = b.x() - a.x(), abz = b.z() - a.z();
+        double apx = p.x() - a.x(), apz = p.z() - a.z();
+        double len2 = abx * abx + abz * abz;
+        if (len2 < 1e-9) return Math.sqrt(apx * apx + apz * apz);
+        double t = Math.max(0, Math.min(1, (apx * abx + apz * abz) / len2));
+        double cx = a.x() + t * abx - p.x(), cz = a.z() + t * abz - p.z();
+        return Math.sqrt(cx * cx + cz * cz);
     }
 
     /** 时间标签：每 N 分钟一点，密集区融合为范围。 */
