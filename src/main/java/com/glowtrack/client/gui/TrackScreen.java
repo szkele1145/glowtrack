@@ -187,9 +187,9 @@ public class TrackScreen extends Screen {
         g.drawString(font, title, 10, 9, 0xE6EDF3, false);
         String mode = ClientTrackState.get().isServerMode() ? "● 服务端模式" : "○ 本地观察";
         g.drawString(font, mode, width - font.width(mode) - 10, 9, 0x58A6FF, false);
-        // 问题反馈群
-        String qq = "反馈Q群 1129543042";
-        g.drawString(font, qq, width - font.width(mode) - 10 - font.width(qq) - 18, 9, 0x6E7681, false);
+        // 问题反馈（国外 TG / 国内 QQ）
+        String contact = "TG @maodie_mods · QQ 1129543042";
+        g.drawString(font, contact, width - font.width(mode) - 10 - font.width(contact) - 18, 9, 0x6E7681, false);
 
         drawRightContent(g);
         if (timeline != null)
