@@ -109,6 +109,20 @@ public final class ClientTrackState {
         viewEndRatio = Math.max(viewSpanRatio, Math.min(1.0, viewEndRatio + deltaRatio));
     }
 
+    /**
+     * 缩放时间轴窗口（factor>1 放大细节，<1 缩小看全景）。
+     * anchorRatio = 缩放锚点（鼠标位置对应的全长比例），缩放时该点保持不动。
+     */
+    public void zoomView(double factor, double anchorRatio) {
+        double newSpan = Math.max(0.02, Math.min(1.0, viewSpanRatio * factor));
+        // 锚点在窗口内的相对位置保持不变
+        double winStart = Math.max(0.0, viewEndRatio - viewSpanRatio);
+        double rel = (anchorRatio - winStart) / Math.max(1e-9, viewSpanRatio);
+        rel = Math.max(0.0, Math.min(1.0, rel));
+        viewSpanRatio = newSpan;
+        viewEndRatio = Math.max(newSpan, Math.min(1.0, anchorRatio + (1.0 - rel) * newSpan));
+    }
+
     /** 视图窗口跳到最新（开始追踪新目标时调用）。 */
     public void snapViewToLatest() {
         viewEndRatio = 1.0;

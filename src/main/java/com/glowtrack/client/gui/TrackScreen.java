@@ -419,6 +419,15 @@ public class TrackScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        // 时间轴上滚轮缩放窗口（锚点=鼠标位置）
+        if (mx >= tlX - 2 && mx <= tlX + tlW + 2 && my >= yTl - 2 && my <= yTl + TL_H + 8
+                && !ClientTrackState.get().points().isEmpty()) {
+            ClientTrackState cs = ClientTrackState.get();
+            double anchor = cs.viewStartRatio()
+                    + (mx - tlX) / (double) tlW * (cs.viewEndRatio() - cs.viewStartRatio());
+            cs.zoomView(sy > 0 ? 0.8 : 1.25, anchor);
+            return true;
+        }
         if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
             scrollPx = clamp(scrollPx - (int) (sy * 12), 0, Math.max(0, filtered.size() * ROW - listH));
             return true;
