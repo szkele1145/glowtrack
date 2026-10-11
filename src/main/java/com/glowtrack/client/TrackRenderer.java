@@ -16,9 +16,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -194,8 +192,8 @@ public final class TrackRenderer {
         List<TimeLabel> out = new ArrayList<>();
         if (points.isEmpty()) return out;
         long intervalMs = Math.max(5, s.timePointSeconds) * 1000L;
-        // 时间标签统一显示到秒：时:分:秒
-        SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss");
+        // 时间标签统一显示到秒：时:分:秒（公共工具）
+        java.util.function.LongFunction<String> f = com.glowtrack.track.TrackTimes::hms;
 
         List<Integer> anchors = new ArrayList<>();
         long last = Long.MIN_VALUE;
@@ -229,11 +227,11 @@ public final class TrackRenderer {
                 }
                 int n = c.size();
                 out.add(new TimeLabel(cx / n, cy / n, cz / n,
-                        f.format(new Date(minT)) + "~" + f.format(new Date(maxT)), c.get(0)));
+                        f.apply(minT) + "~" + f.apply(maxT), c.get(0)));
             } else {
                 for (int idx : c) {
                     TrackPoint p = points.get(idx);
-                    out.add(new TimeLabel(p.x(), p.y(), p.z(), f.format(new Date(p.timeMillis())), idx));
+                    out.add(new TimeLabel(p.x(), p.y(), p.z(), f.apply(p.timeMillis()), idx));
                 }
             }
         }

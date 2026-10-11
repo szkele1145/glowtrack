@@ -144,6 +144,7 @@ public final class ClientTrackState {
         trackedSet.clear();
         scrubRatio = 1.0;
         viewEndRatio = 1.0;
+        viewSpanRatio = 0.15;
     }
 
     /**
@@ -158,20 +159,24 @@ public final class ClientTrackState {
             java.nio.file.Files.createDirectories(dir);
             String safe = (name == null || name.isBlank()) ? "track" : name.replaceAll("[^a-zA-Z0-9_\\-]", "_");
             java.nio.file.Path f = dir.resolve(safe + "_" + System.currentTimeMillis() + ".json");
-            StringBuilder sb = new StringBuilder();
-            sb.append("{\"player\":\"").append(tracked).append("\",\"name\":\"").append(safe)
-              .append("\",\"points\":[");
-            for (int i = 0; i < points.size(); i++) {
-                TrackPoint p = points.get(i);
-                if (i > 0) sb.append(',');
-                sb.append("{\"t\":").append(p.timeMillis())
-                  .append(",\"x\":").append(p.x()).append(",\"y\":").append(p.y())
-                  .append(",\"z\":").append(p.z())
-                  .append(",\"d\":\"").append(p.dimension()).append("\",\"v\":").append(p.speed())
-                  .append('}');
+
+            // GSON 序列化（防名字里的引号/反斜杠破坏 JSON 结构）
+            com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+            root.addProperty("player", tracked == null ? "" : tracked.toString());
+            root.addProperty("name", safe);
+            com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
+            for (TrackPoint p : points) {
+                com.google.gson.JsonObject e = new com.google.gson.JsonObject();
+                e.addProperty("t", p.timeMillis());
+                e.addProperty("x", p.x());
+                e.addProperty("y", p.y());
+                e.addProperty("z", p.z());
+                e.addProperty("d", p.dimension().toString());
+                e.addProperty("v", p.speed());
+                arr.add(e);
             }
-            sb.append("]}");
-            java.nio.file.Files.writeString(f, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
+            root.add("points", arr);
+            java.nio.file.Files.writeString(f, root.toString(), java.nio.charset.StandardCharsets.UTF_8);
             return "已导出 " + points.size() + " 点 → " + f.getFileName();
         } catch (Exception e) {
             return "导出失败: " + e.getMessage();

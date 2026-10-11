@@ -60,7 +60,16 @@ public final class ClientSettings {
         return new ClientSettings();
     }
 
+    private long lastSaveMs = 0;
+
+    /**
+     * 保存（节流：距上次落盘不足 500ms 时跳过，滑动条连续拖动时不会每帧写盘）。
+     * 被跳过的保存由下一次调用兜底（拖动结束时必然触发最后一次）。
+     */
     public void save() {
+        long now = System.currentTimeMillis();
+        if (now - lastSaveMs < 500) return;
+        lastSaveMs = now;
         try {
             Path f = file();
             Files.createDirectories(f.getParent());
@@ -68,5 +77,11 @@ public final class ClientSettings {
         } catch (Exception e) {
             GlowTrack.LOGGER.warn("[GlowTrack] 保存客户端设置失败: {}", e.getMessage());
         }
+    }
+
+    /** 强制落盘（无视节流，用于 GUI 关闭/退出存档）。 */
+    public void saveNow() {
+        lastSaveMs = 0;
+        save();
     }
 }

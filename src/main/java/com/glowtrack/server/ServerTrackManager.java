@@ -23,6 +23,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -92,6 +93,10 @@ public final class ServerTrackManager {
         long tick = server.getTickCount();
         long now = System.currentTimeMillis();
 
+        // 每个观察者一个攒批列表：本 tick 内多个被追踪玩家的点合并进一个包
+        Map<UUID, List<Payloads.NetPoint>> batch = new java.util.HashMap<>();
+        Map<UUID, UUID> batchTarget = new java.util.HashMap<>();
+
         for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
             UUID id = sp.getUUID();
             String name = sp.getName().getString();
@@ -106,16 +111,22 @@ public final class ServerTrackManager {
             TrackPoint p = new TrackPoint(now, x, y, z, dim, speed, sp.getYRot(), sp.getXRot());
             store.append(id, name, p);
 
-            // 若正被他人追踪，增量推送给所有观察者
+            // 若正被他人追踪，攒批（不逐点发包）
             for (Map.Entry<UUID, Set<UUID>> e : watchers.entrySet()) {
                 if (e.getValue().contains(id)) {
-                    ServerPlayer watcher = server.getPlayerList().getPlayer(e.getKey());
-                    if (watcher != null) {
-                        PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(
-                                id, false, List.of(net(id, p))));
-                    }
+                    batch.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(net(id, p));
+                    batchTarget.putIfAbsent(e.getKey(), id);
                 }
             }
+        }
+
+        // 每观察者每 tick 至多一个包（单目标攒批推送；多目标时取第一个目标，后续 tick 跟进）
+        for (Map.Entry<UUID, List<Payloads.NetPoint>> e : batch.entrySet()) {
+            ServerPlayer watcher = server.getPlayerList().getPlayer(e.getKey());
+            if (watcher == null) continue;
+            UUID targetId = batchTarget.get(e.getKey());
+            PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(
+                    targetId, false, e.getValue()));
         }
 
         // 周期落盘

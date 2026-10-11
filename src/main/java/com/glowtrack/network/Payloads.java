@@ -25,7 +25,6 @@ public final class Payloads {
     public static final ResourceLocation START_TRACKING_ID = id("start_tracking");
     public static final ResourceLocation STOP_TRACKING_ID = id("stop_tracking");
     public static final ResourceLocation TRACK_SNAPSHOT_ID = id("track_snapshot");
-    public static final ResourceLocation TRACK_STREAM_ID = id("track_stream");
     public static final ResourceLocation SYNC_SETTINGS_ID = id("sync_settings");
     public static final ResourceLocation TELEPORT_TO_ID = id("teleport_to");
 

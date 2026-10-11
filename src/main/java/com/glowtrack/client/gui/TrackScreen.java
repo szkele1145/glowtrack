@@ -15,9 +15,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.network.chat.Component;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,11 +42,7 @@ public class TrackScreen extends Screen {
     private final List<Payloads.PlayerEntry> filtered = new ArrayList<>();
     private Payloads.PlayerEntry selected;
     private int scrollPx = 0;
-    private boolean dragTl = false;
-    private boolean tlDragMoved = false;
-    private double tlDragStartX = 0;
-    private double tlDragStartViewEnd = 1.0;
-    private int hoverTlX = -1, hoverTlY = -1;
+    private com.glowtrack.client.gui.widget.TimelineWidget timeline;
 
     public TrackScreen() {
         super(Component.literal("玩家轨迹追踪"));
@@ -62,6 +56,8 @@ public class TrackScreen extends Screen {
         search.setHint(Component.literal("🔍 搜索玩家..."));
         search.setResponder(s -> { refreshList(); scrollPx = 0; });
         addRenderableWidget(search);
+        timeline = new com.glowtrack.client.gui.widget.TimelineWidget(tlX, yTl, tlW, TL_H);
+        addRenderableWidget(timeline);
         refreshList();
         buildRight();
         if (ClientTrackState.get().isServerMode())
@@ -83,7 +79,7 @@ public class TrackScreen extends Screen {
         yHead   = y; y += 22;        // 玩家头像/名
         yBtn    = y; y += 26;        // 开始/停止
         yMode   = y; y += 22;        // 三个渲染模式开关
-        yTl     = y; y += TL_H + 8;  // 时间轴
+        yTl     = y; y += TL_H + 14; // 时间轴（含滚动条与范围标签空间）
         yTele   = y; y += 24;        // 传送
         yRead   = y; y += 36;        // 读数（3 行）
         ySlider = y; y += 20;        // 时间点间隔 | 保留天数（一行两滑块）
@@ -194,8 +190,8 @@ public class TrackScreen extends Screen {
 
         drawList(g, mx, my);
         drawRightContent(g);
-        hoverTlX = (mx >= tlX && mx <= tlX + tlW && !ClientTrackState.get().points().isEmpty()) ? mx : -1;
-        hoverTlY = my;
+        if (timeline != null)
+            timeline.updateHover(mx, my, !ClientTrackState.get().points().isEmpty());
     }
 
     @Override
@@ -247,100 +243,18 @@ public class TrackScreen extends Screen {
 
         List<TrackPoint> pts = ClientTrackState.get().points();
         ClientTrackState cs = ClientTrackState.get();
-        g.fill(tlX, yTl, tlX + tlW, yTl + TL_H, 0xFF0D1117);
-        if (pts.isEmpty()) {
-            g.drawString(font, "点开始追踪后此处回看时间轴", tlX + 4, yTl + 4, 0x484F58, false);
-        } else {
-            double vStart = cs.viewStartRatio(), vEnd = cs.viewEndRatio();
-            long t0 = pts.get(0).timeMillis(), t1 = pts.get(pts.size() - 1).timeMillis();
-            long span = Math.max(1, t1 - t0);
-
-            // 窗口内的轨迹条（按时间比例映射到 x）
-            for (int i = 0; i < pts.size(); i++) {
-                TrackPoint p = pts.get(i);
-                double r = (p.timeMillis() - t0) / (double) span;
-                if (r < vStart || r > vEnd) continue;
-                int px = tlX + (int) ((r - vStart) / (vEnd - vStart) * (tlW - 1));
-                g.fill(px, yTl + 2, px + 1, yTl + TL_H - 2, heat(p.speed()));
-            }
-            // 维度切换标记（窗口内）
-            for (int i = 1; i < pts.size(); i++) {
-                if (!pts.get(i).inDimension(pts.get(i - 1).dimension())) {
-                    double r = (pts.get(i).timeMillis() - t0) / (double) span;
-                    if (r < vStart || r > vEnd) continue;
-                    int dx = tlX + (int) ((r - vStart) / (vEnd - vStart) * (tlW - 1));
-                    g.fill(dx, yTl, dx + 1, yTl + TL_H, 0xFFFFFFFF);
-                }
-            }
-            // 时间点标记（每 N 秒一个白色小竖线）
-            int sec = Math.max(5, com.glowtrack.client.ClientSettings.get().timePointSeconds);
-            for (long t = (t0 / (sec * 1000L)) * sec * 1000L; t <= t1; t += sec * 1000L) {
-                double r = (t - t0) / (double) span;
-                if (r < vStart || r > vEnd) continue;
-                int px = tlX + (int) ((r - vStart) / (vEnd - vStart) * (tlW - 1));
-                g.fill(px, yTl, px + 1, yTl + 4, 0xCCFFFFFF);
-            }
-            // 游标（若在窗口内）
-            double sc = cs.scrubRatio();
-            if (sc >= vStart && sc <= vEnd) {
-                int cur = tlX + (int) ((sc - vStart) / (vEnd - vStart) * (tlW - 1));
-                g.fill(cur - 1, yTl - 1, cur + 1, yTl + TL_H + 1, 0xFFFFFFFF);
-            }
-            // 窗口下方滚动条（指示当前窗口在全长中的位置）
-            int sbY = yTl + TL_H + 2;
-            g.fill(tlX, sbY, tlX + tlW, sbY + 2, 0xFF222831);
-            int thumbX = tlX + (int) (vStart * (tlW - 1));
-            int thumbW = Math.max(6, (int) ((vEnd - vStart) * (tlW - 1)));
-            g.fill(thumbX, sbY, thumbX + thumbW, sbY + 2, 0xFF6E7681);
-
-            // 窗口起止时刻（滚动条右侧）
-            String range = new SimpleDateFormat("HH:mm:ss").format(new Date(t0 + (long) (vStart * span)))
-                    + " → " + new SimpleDateFormat("HH:mm:ss").format(new Date(t0 + (long) (vEnd * span)));
-            g.drawString(font, range, tlX + tlW - font.width(range), sbY + 5, 0x484F58, false);
-
-            // 悬停预览：鼠标在时间轴上时显示该时刻的点信息
-            if (hoverTlX >= 0 && hoverTlY >= yTl - 2 && hoverTlY <= yTl + TL_H + 8) {
-                double hr = vStart + (hoverTlX - tlX) / (double) tlW * (vEnd - vStart);
-                if (hr >= 0 && hr <= 1) {
-                    long ht = t0 + (long) (hr * span);
-                    // 二分找最接近的点
-                    int lo = 0, hi = pts.size() - 1;
-                    while (lo < hi) {
-                        int mid = (lo + hi) >>> 1;
-                        if (pts.get(mid).timeMillis() < ht) lo = mid + 1; else hi = mid;
-                    }
-                    if (lo > 0 && Math.abs(pts.get(lo - 1).timeMillis() - ht)
-                            <= Math.abs(pts.get(lo).timeMillis() - ht)) lo--;
-                    TrackPoint hp = pts.get(lo);
-                    String tip = new SimpleDateFormat("HH:mm:ss").format(new Date(hp.timeMillis()))
-                            + String.format("  %.0f,%.0f,%.0f", hp.x(), hp.y(), hp.z());
-                    int tw = font.width(tip) + 8;
-                    int tx = Math.min(hoverTlX + 6, tlX + tlW - tw);
-                    int ty = yTl - 14;
-                    g.fill(tx, ty, tx + tw, ty + 12, 0xE01C2129);
-                    g.drawString(font, tip, tx + 4, ty + 2, 0xC9D1D9, false);
-                }
-            }
-        }
-
-        if (pts.isEmpty()) {
-            g.drawString(font, selected == null ? "未选择玩家" : "等待轨迹数据…", x, yRead, 0x6E7681, false);
-        } else {
+        // 时间轴由独立组件绘制（窗口视图/标记/游标/悬停预览）
+        // 读数区直接解析游标
+        if (!pts.isEmpty()) {
             TrackPoint cp = cursor(pts);
-            g.drawString(font, "时刻 " + new SimpleDateFormat("HH:mm:ss").format(new Date(cp.timeMillis())),
+            g.drawString(font, "时刻 " + com.glowtrack.track.TrackTimes.hms(cp.timeMillis()),
                     x, yRead, 0xD29922, false);
             g.drawString(font, "维度 " + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
             g.drawString(font, String.format("坐标 %.1f  %.1f  %.1f", cp.x(), cp.y(), cp.z()),
                     x, yRead + 24, 0x8B949E, false);
+        } else {
+            g.drawString(font, selected == null ? "未选择玩家" : "等待轨迹数据…", x, yRead, 0x6E7681, false);
         }
-    }
-
-    private int heat(float sp) {
-        float v = Math.max(0f, Math.min(1f, sp / 3f));
-        int r, gr, b;
-        if (v < 0.5f) { r = 0; gr = (int) (v * 2 * 255); b = 255 - gr; }
-        else { int t = (int) ((v - 0.5) * 2 * 255); r = t; gr = 255 - t; b = 0; }
-        return 0xFF000000 | (r << 16) | (gr << 8) | b;
     }
 
     private void drawHead(GuiGraphics g, UUID id, String name, int x, int y) {
@@ -357,77 +271,30 @@ public class TrackScreen extends Screen {
         return "主世界";
     }
 
-    /** 游标解析：scrubRatio 视为时间比例（与时间轴绘制一致），二分查找最接近该时刻的点。 */
+    /** 游标解析：scrubRatio 视为时间比例（与时间轴绘制一致），取最接近该时刻的点。 */
     private TrackPoint cursor(List<TrackPoint> pts) {
         long t0 = pts.get(0).timeMillis(), t1 = pts.get(pts.size() - 1).timeMillis();
         long target = t0 + (long) (ClientTrackState.get().scrubRatio() * (double) (t1 - t0));
-        int lo = 0, hi = pts.size() - 1;
-        while (lo < hi) {
-            int mid = (lo + hi) >>> 1;
-            if (pts.get(mid).timeMillis() < target) lo = mid + 1; else hi = mid;
-        }
-        if (lo > 0 && Math.abs(pts.get(lo - 1).timeMillis() - target)
-                <= Math.abs(pts.get(lo).timeMillis() - target)) lo--;
-        return pts.get(lo);
+        return com.glowtrack.track.TrackTimes.nearestByTime(pts, target);
     }
 
-    // ---- 交互 ----
+    // ---- 交互（时间轴部分转发给 TimelineWidget，列表部分自留）----
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
             int idx = (int) ((my - listY + scrollPx) / ROW);
             if (idx >= 0 && idx < filtered.size()) { selected = filtered.get(idx); return true; }
         }
-        if (mx >= tlX - 2 && mx <= tlX + tlW + 2 && my >= yTl - 2 && my <= yTl + TL_H + 6
-                && !ClientTrackState.get().points().isEmpty()) {
-            // 开始拖动：记录起点，用于区分「点击设游标」与「拖动平移」
-            dragTl = true; tlDragMoved = false;
-            tlDragStartX = mx;
-            tlDragStartViewEnd = ClientTrackState.get().viewEndRatio();
-            return true;
-        }
         return super.mouseClicked(mx, my, button);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int b, double dx, double dy) {
-        if (dragTl) {
-            if (Math.abs(mx - tlDragStartX) > 3) tlDragMoved = true;
-            // 拖动平移窗口（左拖=看历史）
-            if (tlDragMoved) {
-                double span = ClientTrackState.get().viewSpanRatio();
-                double delta = -(mx - tlDragStartX) / tlW * span;
-                ClientTrackState.get().panView(tlDragStartViewEnd + delta - ClientTrackState.get().viewEndRatio());
-            }
-            return true;
-        }
-        return super.mouseDragged(mx, my, b, dx, dy);
-    }
-
-    @Override
     public boolean mouseReleased(double mx, double my, int b) {
-        // 点击（未拖动）= 在窗口内设置传送游标
-        if (dragTl && !tlDragMoved && !ClientTrackState.get().points().isEmpty()) {
-            double vStart = ClientTrackState.get().viewStartRatio();
-            double vEnd = ClientTrackState.get().viewEndRatio();
-            double r = vStart + (mx - tlX) / tlW * (vEnd - vStart);
-            ClientTrackState.get().setScrubRatio(r);
-        }
-        dragTl = false;
         return super.mouseReleased(mx, my, b);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-        // 时间轴上滚轮缩放窗口（锚点=鼠标位置）
-        if (mx >= tlX - 2 && mx <= tlX + tlW + 2 && my >= yTl - 2 && my <= yTl + TL_H + 8
-                && !ClientTrackState.get().points().isEmpty()) {
-            ClientTrackState cs = ClientTrackState.get();
-            double anchor = cs.viewStartRatio()
-                    + (mx - tlX) / (double) tlW * (cs.viewEndRatio() - cs.viewStartRatio());
-            cs.zoomView(sy > 0 ? 0.8 : 1.25, anchor);
-            return true;
-        }
         if (mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
             scrollPx = clamp(scrollPx - (int) (sy * 12), 0, Math.max(0, filtered.size() * ROW - listH));
             return true;
