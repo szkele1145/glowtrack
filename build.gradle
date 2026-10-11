@@ -60,3 +60,18 @@ processResources {
         expand replaceProperties
     }
 }
+
+// ==== Modrinth 发布 ====
+// 本机代理会改写 POST 请求体导致 Modrinth API 返回 400，故未自动发布。
+// 有干净网络时，取消下方注释并安装 modrinthgradle 插件即可一键发布：
+//   plugins { id 'com.modrinth.modrinthgrge' version '<latest>' }
+//   modrinth {
+//       token = System.getenv('MODRINTH_TOKEN')
+//       projectId = 'glowtrack'
+//       versionNumber = project.version
+//       uploadFile = "build/libs/glowtrack-${project.version}.jar"
+//       gameVersions = ['1.21.1']; loaders = ['neoforge']
+//       dependencies { optional.project('xaeros-world-map'); optional.project('xaeros-minimap') }
+//   }
+// 或直接在 modrinth.com 上传 build/libs/glowtrack-1.0.0.jar，
+// 前置依赖手动设 Xaero's World Map / Minimap 为 Optional。
