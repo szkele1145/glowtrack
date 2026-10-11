@@ -34,6 +34,7 @@ neoForge {
 // jar 已手动下载到 libs/（本地代理对 chocolateminecraft.com 做 TLS 拦截，远程仓库不可靠）
 dependencies {
     compileOnly files('libs/xaeroworldmap-neoforge-1.21.1-1.47.0.jar')
+    compileOnly files('libs/xaerominimap-neoforge-1.21.1-26.6.0.jar')
 }
 
 tasks.withType(JavaCompile).configureEach {

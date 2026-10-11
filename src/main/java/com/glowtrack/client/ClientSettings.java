@@ -10,35 +10,34 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * 客户端渲染设置（持久化到磁盘）。
+ * 客户端设置（持久化到磁盘）。
  *
- * <p>所有渲染样式参数集中于此，改动即刻生效并写盘，
- * 重启后保留。存于 {@code .minecraft/glowtrack/settings.json}。</p>
+ * <p>渲染效果（热力/发光/穿墙/时间标签/虚线）按选品既定、固定无开关。
+ * 此处只保留三个渲染模式开关（3D / 2D / Xaero 地图）与采样、保留设置。</p>
  */
 public final class ClientSettings {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static ClientSettings instance;
 
-    // ---- 渲染 ----
-    public RenderStyle style = RenderStyle.RAINBOW;
-    /** 单色/彩虹主题的基准色相（0..1），RAINBOW 时作为起始色相。 */
-    public float baseHue = 0.55f;
-    public float lineWidth = 4.0f;
-    public boolean glow = true;
-    public boolean wallhack = true;
-    public boolean timeLabels = true;
-    public boolean dashPulse = true;
-    public boolean showArrows = true;
-    public boolean showMarkers = true;   // 起点/终点/当前点标记
+    // ---- 三种渲染模式（三个开关）----
+    /** 3D 立体线：在轨迹真实位置画线。 */
+    public boolean mode3d = true;
+    /** 2D 平面线：取 X/Z，在观察者高度下方 5 格的固定平面画线（高空巡逻用）。 */
+    public boolean mode2d = false;
+    /** Xaero 地图联动：小地图 + 世界地图画线 + 时间点。 */
+    public boolean xaeroMap = false;
 
-    // ---- 采样（同步到服务端）----
+    // ---- 采样与保留 ----
     public int sampleIntervalTicks = 20;
     public int retentionDays = 7;
 
+    /** 时间点间隔（分钟）。 */
+    public int timePointMinutes = 5;
+    /** 融合阈值：某区域内点数超过此值即融合成范围标签。 */
+    public int mergeThreshold = 1;
+
     public static ClientSettings get() {
-        if (instance == null) {
-            instance = load();
-        }
+        if (instance == null) instance = load();
         return instance;
     }
 
@@ -61,7 +60,6 @@ public final class ClientSettings {
         return new ClientSettings();
     }
 
-    /** 立即写盘。 */
     public void save() {
         try {
             Path f = file();
