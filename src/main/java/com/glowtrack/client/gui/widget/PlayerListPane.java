@@ -34,7 +34,7 @@ public class PlayerListPane extends AbstractWidget {
     private int scrollPx = 0;
 
     public PlayerListPane(int x, int y, int w, int h, SelectionListener listener) {
-        super(x, y, w, h, Component.literal("玩家列表"));
+        super(x, y, w, h, com.glowtrack.client.Text.tr("glowtrack.gui.whitelist"));
         this.listener = listener;
     }
 
@@ -68,14 +68,14 @@ public class PlayerListPane extends AbstractWidget {
                 drawHead(g, e.id(), e.name(), x + 2, y + 4);
                 g.drawString(font, e.name(), x + 24, y + 4, sel ? Palette.ACCENT : Palette.TXT_BRIGHT, false);
                 g.fill(x + 24, y + 15, x + 28, y + 19, e.online() ? Palette.ONLINE : Palette.OFFLINE);
-                g.drawString(font, e.online() ? "在线" : "离线", x + 32, y + 14,
+                g.drawString(font, e.online() ? com.glowtrack.client.Text.s("glowtrack.gui.online") : com.glowtrack.client.Text.s("glowtrack.gui.offline"), x + 32, y + 14,
                         e.online() ? Palette.ONLINE : Palette.TXT_FAINT, false);
             }
             y += ROW;
         }
         g.disableScissor();
         if (items.isEmpty())
-            g.drawString(font, ClientTrackState.get().whitelist().isEmpty() ? "无白名单数据" : "无匹配玩家",
+            g.drawString(font, ClientTrackState.get().whitelist().isEmpty() ? com.glowtrack.client.Text.s("glowtrack.gui.no_whitelist") : com.glowtrack.client.Text.s("glowtrack.gui.no_match"),
                     x + 4, y0 + 4, Palette.TXT_FAINT, false);
         int maxScroll = Math.max(0, items.size() * ROW - h);
         if (maxScroll > 0) {

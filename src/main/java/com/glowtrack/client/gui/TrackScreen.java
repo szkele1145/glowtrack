@@ -44,15 +44,15 @@ public class TrackScreen extends Screen {
     private com.glowtrack.client.gui.widget.PlayerListPane listPane;
 
     public TrackScreen() {
-        super(Component.literal("玩家轨迹追踪"));
+        super(com.glowtrack.client.Text.tr("glowtrack.gui.title"));
     }
 
     @Override
     protected void init() {
         layout();
-        search = new EditBox(font, leftX + 6, top + 4, leftW - 12, 16, Component.literal("搜索玩家"));
+        search = new EditBox(font, leftX + 6, top + 4, leftW - 12, 16, com.glowtrack.client.Text.tr("glowtrack.gui.search"));
         search.setMaxLength(32);
-        search.setHint(Component.literal("🔍 搜索玩家..."));
+        search.setHint(com.glowtrack.client.Text.tr("glowtrack.gui.search_hint"));
         search.setResponder(s -> { refreshList(); listPane.resetScroll(); });
         addRenderableWidget(search);
         listPane = new com.glowtrack.client.gui.widget.PlayerListPane(
@@ -102,42 +102,43 @@ public class TrackScreen extends Screen {
         int col2 = (w - 6) / 2, col3 = (w - 12) / 3;
 
         addRenderableWidget(FlatButton.primary(x, yBtn, col2, 20,
-                Component.literal("▶ 开始追踪"), b -> startTrack()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.start"), b -> startTrack()));
         addRenderableWidget(FlatButton.of(x + col2 + 6, yBtn, col2, 20,
-                Component.literal("■ 停止"), b -> stopTrack()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.stop"), b -> stopTrack()));
 
         // 三个渲染模式开关
         addRenderableWidget(new FlatToggle(x, yMode, col3, 16, "3D",
                 () -> ClientSettings.get().mode3d, v -> { ClientSettings.get().mode3d = v; ClientSettings.get().save(); }));
         addRenderableWidget(new FlatToggle(x + col3 + 6, yMode, col3, 16, "2D",
                 () -> ClientSettings.get().mode2d, v -> { ClientSettings.get().mode2d = v; ClientSettings.get().save(); }));
-        addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16, "地图",
+        addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16,
+                com.glowtrack.client.Text.s("glowtrack.gui.map"),
                 () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); })
                 .enabledWhen(() -> com.glowtrack.client.XaeroDetect.anyXaero()));
 
         addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
-                Component.literal("📍 传送至游标时刻"), b -> teleport()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport()));
         addRenderableWidget(FlatButton.of(x + col2 + 6, yTele, col2, 20,
-                Component.literal("⏮ 回到最新"), b -> {
+                com.glowtrack.client.Text.tr("glowtrack.gui.latest"), b -> {
                     ClientTrackState.get().setScrubRatio(1.0);
                     ClientTrackState.get().snapViewToLatest();
                 }));
 
-        addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, "时间点",
+        addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, com.glowtrack.client.Text.s("glowtrack.gui.timepoint"),
                 () -> (ClientSettings.get().timePointSeconds - 5) / 295.0,
                 v -> { ClientSettings.get().timePointSeconds = (int) Math.round(5 + v * 295); ClientSettings.get().save(); },
-                () -> ClientSettings.get().timePointSeconds + "s"));
-        addRenderableWidget(new FlatSlider(x + col2 + 6, ySlider, col2, 16, "保留",
+                () -> com.glowtrack.client.Text.s("glowtrack.gui.seconds", ClientSettings.get().timePointSeconds)));
+        addRenderableWidget(new FlatSlider(x + col2 + 6, ySlider, col2, 16, com.glowtrack.client.Text.s("glowtrack.gui.retention"),
                 () -> (ClientSettings.get().retentionDays - 1) / 29.0,
                 v -> { ClientSettings.get().retentionDays = (int) Math.round(1 + v * 29); ClientSettings.get().save(); pushSettings(); },
-                () -> ClientSettings.get().retentionDays + "天"));
+                () -> com.glowtrack.client.Text.s("glowtrack.gui.days", ClientSettings.get().retentionDays)));
 
         // 底部 footer
         int yFoot = height - 26;
         addRenderableWidget(FlatButton.of(x, yFoot, col2, 18,
-                Component.literal("⬇ 导出"), b -> exportTrack()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.export"), b -> exportTrack()));
         addRenderableWidget(FlatButton.of(x + col2 + 6, yFoot, col2, 18,
-                Component.literal("关闭"), b -> onClose()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.close"), b -> onClose()));
     }
 
     private void pushSettings() {
@@ -185,10 +186,10 @@ public class TrackScreen extends Screen {
         g.fill(leftX - 2, top - 4, leftX + leftW + 2, height - 24, 0xFF11161F);
         g.fill(panelX, top - 4, panelX + panelW, height - 24, 0xFF141B26);
         g.drawString(font, title, 10, 9, 0xE6EDF3, false);
-        String mode = ClientTrackState.get().isServerMode() ? "● 服务端模式" : "○ 本地观察";
+        String mode = ClientTrackState.get().isServerMode() ? com.glowtrack.client.Text.s("glowtrack.mode.server") : com.glowtrack.client.Text.s("glowtrack.mode.local");
         g.drawString(font, mode, width - font.width(mode) - 10, 9, 0x58A6FF, false);
         // 问题反馈（国外 TG / 国内 QQ）
-        String contact = "TG @maodie_mods · QQ 1129543042";
+        String contact = com.glowtrack.client.Text.s("glowtrack.gui.contact");
         g.drawString(font, contact, width - font.width(mode) - 10 - font.width(contact) - 18, 9, 0x6E7681, false);
 
         drawRightContent(g);
@@ -206,10 +207,10 @@ public class TrackScreen extends Screen {
         if (selected != null) {
             drawHead(g, selected.id(), selected.name(), x, yHead);
             g.drawString(font, selected.name(), x + 22, yHead + 1, 0xE6EDF3, false);
-            g.drawString(font, selected.online() ? "在线" : "离线", x + 22, yHead + 11,
+            g.drawString(font, selected.online() ? com.glowtrack.client.Text.s("glowtrack.gui.online") : com.glowtrack.client.Text.s("glowtrack.gui.offline"), x + 22, yHead + 11,
                     selected.online() ? 0x3FB950 : 0x8B949E, false);
         } else {
-            g.drawString(font, "← 左侧选择玩家", x, yHead + 4, 0x8B949E, false);
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.select_hint"), x, yHead + 4, 0x8B949E, false);
         }
 
         List<TrackPoint> pts = ClientTrackState.get().points();
@@ -218,13 +219,13 @@ public class TrackScreen extends Screen {
         // 读数区直接解析游标
         if (!pts.isEmpty()) {
             TrackPoint cp = cursor(pts);
-            g.drawString(font, "时刻 " + com.glowtrack.track.TrackTimes.hms(cp.timeMillis()),
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.time") + com.glowtrack.track.TrackTimes.hms(cp.timeMillis()),
                     x, yRead, 0xD29922, false);
-            g.drawString(font, "维度 " + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
-            g.drawString(font, String.format("坐标 %.1f  %.1f  %.1f", cp.x(), cp.y(), cp.z()),
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.dim") + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()),
                     x, yRead + 24, 0x8B949E, false);
         } else {
-            g.drawString(font, selected == null ? "未选择玩家" : "等待轨迹数据…", x, yRead, 0x6E7681, false);
+            g.drawString(font, selected == null ? com.glowtrack.client.Text.s("glowtrack.gui.noselection") : com.glowtrack.client.Text.s("glowtrack.gui.waiting"), x, yRead, 0x6E7681, false);
         }
     }
 
@@ -237,9 +238,9 @@ public class TrackScreen extends Screen {
     }
 
     private String dimName(String d) {
-        if (d.contains("nether")) return "下界";
-        if (d.contains("end")) return "末地";
-        return "主世界";
+        if (d.contains("nether")) return com.glowtrack.client.Text.s("glowtrack.dim.nether");
+        if (d.contains("end")) return com.glowtrack.client.Text.s("glowtrack.dim.end");
+        return com.glowtrack.client.Text.s("glowtrack.dim.overworld");
     }
 
     /** 游标解析：scrubRatio 视为时间比例（与时间轴绘制一致），取最接近该时刻的点。 */

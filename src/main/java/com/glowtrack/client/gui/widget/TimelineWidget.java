@@ -52,7 +52,7 @@ public class TimelineWidget extends AbstractWidget {
     private int hoverX = -1, hoverY = -1;
 
     public TimelineWidget(int x, int y, int w, int h) {
-        super(x, y, w, h, Component.literal("时间轴"));
+        super(x, y, w, h, com.glowtrack.client.Text.tr("glowtrack.gui.timepoint"));
     }
 
     @Override
@@ -64,7 +64,7 @@ public class TimelineWidget extends AbstractWidget {
         var font = Minecraft.getInstance().font;
 
         if (pts.isEmpty()) {
-            g.drawString(font, "点开始追踪后此处回看时间轴", tlX + 4, yTl + 4, TXT_DIM, false);
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.timeline_hint"), tlX + 4, yTl + 4, TXT_DIM, false);
             return;
         }
 

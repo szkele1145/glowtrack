@@ -1,7 +1,18 @@
-import React from 'react';
+﻿import React from 'react';
 import {useCurrentFrame} from 'remotion';
 import {GlitchIn, kf, emphasisPulse, easeInOutPow, SENTENCES, TOTAL_FRAMES, CHAPTER_STARTS, FONT_HEAVY, FONT_WIDE, FONT_ORB, clamp01, SQUEEZE, fitSize, EM_WIDE} from '../common';
 import {CText, TechText, TechSub, Pill, TopCapsule, ArrowH, PURPLE, PURPLE_TECH, GREY, GREY_MID, WHITE, GLOW_PURPLE_S, PILL_SHADOW, fadeIn, slideUp} from '../ui';
+
+/** 局部 HSV→RGB（片头图标用；h∈[0,360)）。 */
+function hsv(h: number, s: number, v: number): [number, number, number] {
+  const h6 = (((h % 360) + 360) % 360) / 60;
+  const i = Math.floor(h6) % 6;
+  const f = h6 - Math.floor(h6);
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const map: Array<[number, number, number]> = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]];
+  const [r, g, b] = map[i];
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
 import {VIDEO} from '../config';
 const clampFrames = (n: number, len: number) => clamp01(n / len);
 
@@ -19,35 +30,62 @@ const exitOut = (n: number) => {
   return {dy: t * t * 440, op: 1 - Math.pow(t, 1.6)};
 };
 
-// ---------- 片头 ----------
+// ---------- 片头（用户指定：图标居中 → 左移 → 右侧淡入模组名）----------
 // 配音未生成时（timeline.ts 占位、SENTENCES 为空）用兜底值，让探针 still 能渲染
 export const TITLE_RANGE: [number, number] = [1, (SENTENCES[0]?.from ?? 100) - 9];
 export const Title: React.FC = () => {
   const N = useCurrentFrame() + TITLE_RANGE[0];
   const [a, b] = TITLE_RANGE;
-  const exitN = N - (b - 11); // 末 12 帧上摇出画（QC v1：原 8 帧只走了 59px/63% 亮度就被硬切）
+  const exitStart = Math.max(b - 11, 74); const exitN = N - exitStart;
   const dy = -exitOut(exitN).dy;
   const op = exitOut(exitN).op;
-  const glow = 0.5 + 0.5 * Math.sin((N / 30) * Math.PI); // 缓慢呼吸
+
+  // 阶段帧（LEAD≈85：0–28 图标居中 1s；29–43 左滑 0.5s；46–60 字淡入；61+ 停 1s+）
+  const iconIn = kf(N, [[0, 0], [24, 1]], easeInOutPow(2.5));            // 图标入场 0.8s
+  const moveT = kf(N, [[29, 0], [43, 1]], easeInOutPow(2.2));           // 左滑 0.5s
+  const iconX = 640 - 250 * moveT;                                       // 640 → 390
+  const nameOp = fadeIn(N - 40, 12);
+  const exitN2 = N - 74; // 出口延后：字出完后停 ≈1s（74→86）
+  const glow = 0.5 + 0.5 * Math.sin((N / 30) * Math.PI);
+  // 图标+名字作为一个整体居中：图标 340 宽，名字区约 560 宽 → 组合中心 ≈ (390+560+560)/2
+  const trackPts: Array<[number, number]> = Array.from({length: 60}, (_, i) => {
+    const t = i / 59;
+    return [t * 220 - 110, -t * 130 + 65 + 28 * Math.sin(t * Math.PI * 2.2 + 0.7)];
+  });
+  const rainbow = (t: number, alpha: number) => {
+    const h = (330 * t) % 360;
+    const c: [number, number, number] = hsv(h, 0.85, 1);
+    return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+  };
   return (
     <div style={{position: 'absolute', inset: 0, transform: `translateY(${dy}px)`, opacity: op}}>
-      <GlitchIn N={N} f0={a + 11} rgbSplit={6} slices={14} seed={3}>
-        <div style={{position: 'absolute', left: 0, top: 268, width: 1280, display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 26}}>
-          <span style={{fontFamily: FONT_WIDE, fontSize: fitSize(VIDEO.title.big, VIDEO.title.rest ? 620 : 1120, 118, 64, EM_WIDE, 6), color: WHITE, lineHeight: 1, letterSpacing: 6, textShadow: `0 0 ${18 + 14 * glow}px rgba(102,45,248,${0.55 + 0.3 * glow}), 6px 6px 0 ${PURPLE}`}}>{VIDEO.title.big}</span>
-          {VIDEO.title.rest ? (
-            <span style={{fontFamily: FONT_HEAVY, fontWeight: 900, fontSize: fitSize(VIDEO.title.rest, 520, 96, 60, 1, 2), color: WHITE, lineHeight: 1, transform: `scaleX(${SQUEEZE})`, transformOrigin: '0 100%', letterSpacing: 2, WebkitTextStroke: '1px #000', paintOrder: 'stroke fill'}}>{VIDEO.title.rest}</span>
-          ) : null}
-        </div>
-      </GlitchIn>
-      <div style={{position: 'absolute', inset: 0, opacity: fadeIn(N - (a + 20), 10), transform: `translateY(${slideUp(N - (a + 20), 60, 18)}px)`}}>
-        <TechText cx={640} cy={446} text={VIDEO.title.en} fontSize={38} scaleX={0.82} weight={700} />
+      {/* 彩虹轨迹图标（矢量重绘 Modrinth 图标：S 曲线三层辉光 + 紫光环节点） */}
+      <div style={{position: 'absolute', left: iconX, top: 360, transform: `translate(-50%,-50%) scale(${0.4 + 0.6 * iconIn})`, opacity: iconIn}}>
+        <svg width={280} height={220} viewBox="-140 -110 280 220">
+          {trackPts.slice(0, -1).map(([x, y], i) => {
+            const t = i / (trackPts.length - 1);
+            const [x2, y2] = trackPts[i + 1];
+            return (
+              <g key={i}>
+                <line x1={x} y1={y} x2={x2} y2={y2} stroke={rainbow(t, 0.10)} strokeWidth={20} strokeLinecap="round" />
+                <line x1={x} y1={y} x2={x2} y2={y2} stroke={rainbow(t, 0.24)} strokeWidth={10} strokeLinecap="round" />
+                <line x1={x} y1={y} x2={x2} y2={y2} stroke={rainbow(t, 1)} strokeWidth={4.5} strokeLinecap="round" />
+              </g>
+            );
+          })}
+          <circle cx={trackPts[trackPts.length - 1][0]} cy={trackPts[trackPts.length - 1][1]} r={24} fill="none" stroke={`rgba(155,120,255,${0.4 + 0.3 * glow})`} strokeWidth={3} />
+          <circle cx={trackPts[trackPts.length - 1][0]} cy={trackPts[trackPts.length - 1][1]} r={9} fill="rgba(155,120,255,0.85)" />
+          <circle cx={trackPts[trackPts.length - 1][0]} cy={trackPts[trackPts.length - 1][1]} r={4} fill="#fff" />
+        </svg>
       </div>
-      {/* QC v1 C1 #1：tagline 原 a+40 起淡入、满态只有 13 帧读不完 → 提前到 a+28（满态 ≈ a+38 → 出画 a+66，28 帧）；完整署名另在片尾 EndCredit 停 3 s */}
-      <div style={{position: 'absolute', inset: 0, opacity: fadeIn(N - (a + 28), 10)}}>
-        <CText cx={640} cy={520} size={30} weight={500} color={GREY} letterSpacing={6}>
+      {/* 右侧模组名（与图标同一水平线，整体居中） */}
+      <div style={{position: 'absolute', left: iconX + 150, top: 320, opacity: nameOp, transform: `translateY(${(1 - nameOp) * 24}px)`}}>
+        <div style={{fontFamily: FONT_WIDE, fontSize: 76, color: WHITE, lineHeight: 1, letterSpacing: 4, whiteSpace: 'nowrap', textShadow: `0 0 ${18 + 14 * glow}px rgba(102,45,248,${0.55 + 0.3 * glow}), 6px 6px 0 ${PURPLE}`}}>
+          {VIDEO.title.big}
+        </div>
+        <div style={{fontFamily: FONT_HEAVY, fontWeight: 500, fontSize: 28, color: GREY, letterSpacing: 6, marginTop: 22, opacity: fadeIn(N - 52, 10), whiteSpace: 'nowrap'}}>
           {VIDEO.title.tagline}
-        </CText>
-        <div style={{position: 'absolute', left: 520, top: 496, width: 240, height: 2, background: 'rgba(255,255,255,0.35)', transform: `scaleX(${fadeIn(N - (a + 28), 14)})`}} />
+        </div>
       </div>
     </div>
   );

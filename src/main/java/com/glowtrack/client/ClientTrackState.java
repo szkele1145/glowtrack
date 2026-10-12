@@ -182,7 +182,7 @@ public final class ClientTrackState {
                     .gameDirectory.toPath().resolve("glowtrack").resolve("export");
             java.nio.file.Files.createDirectories(dir);
             String safe = (name == null || name.isBlank()) ? "track" : name.replaceAll("[^a-zA-Z0-9_\\-]", "_");
-            java.nio.file.Path f = dir.resolve(safe + "_" + System.currentTimeMillis() + ".json");
+            java.nio.file.Path f = dir.resolve(safe + "_" + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".json");
 
             // GSON 序列化（防名字里的引号/反斜杠破坏 JSON 结构）
             com.google.gson.JsonObject root = new com.google.gson.JsonObject();

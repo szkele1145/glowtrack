@@ -221,7 +221,7 @@ public final class ServerTrackManager {
     public void teleportTo(ServerPlayer watcher, UUID target, long timeMillis) {
         List<TrackPoint> history = store.loadRange(target, "", TrackConfig.RETENTION_DAYS.get());
         if (history.isEmpty()) {
-            watcher.displayClientMessage(Component.literal("[GlowTrack] 该玩家暂无轨迹数据"), false);
+            watcher.displayClientMessage(Component.translatable("glowtrack.teleport.empty"), false);
             return;
         }
         TrackPoint nearest = nearest(history, timeMillis);
@@ -229,9 +229,9 @@ public final class ServerTrackManager {
                 ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, nearest.dimension()));
         if (level == null) level = watcher.serverLevel();
         watcher.teleportTo(level, nearest.x(), nearest.y(), nearest.z(), nearest.yaw(), nearest.pitch());
-        watcher.displayClientMessage(Component.literal(
-                "[GlowTrack] 已传送至 " + fmt(nearest.timeMillis()) + " 的位置 [" +
-                String.format("%.1f, %.1f, %.1f", nearest.x(), nearest.y(), nearest.z()) + "]"), false);
+        watcher.displayClientMessage(Component.translatable("glowtrack.teleport.done",
+                com.glowtrack.track.TrackTimes.hms(nearest.timeMillis()),
+                String.format("%.1f, %.1f, %.1f", nearest.x(), nearest.y(), nearest.z())), false);
     }
 
     private TrackPoint nearest(List<TrackPoint> pts, long t) {
