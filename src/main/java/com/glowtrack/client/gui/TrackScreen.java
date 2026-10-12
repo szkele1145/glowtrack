@@ -102,9 +102,11 @@ public class TrackScreen extends Screen {
         int col2 = (w - 6) / 2, col3 = (w - 12) / 3;
 
         addRenderableWidget(FlatButton.primary(x, yBtn, col2, 20,
-                com.glowtrack.client.Text.tr("glowtrack.gui.start"), b -> startTrack()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.start"), b -> startTrack())
+                .enabledWhen(() -> selected != null));
         addRenderableWidget(FlatButton.of(x + col2 + 6, yBtn, col2, 20,
-                com.glowtrack.client.Text.tr("glowtrack.gui.stop"), b -> stopTrack()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.stop"), b -> stopTrack())
+                .enabledWhen(() -> selected != null));
 
         // 三个渲染模式开关
         addRenderableWidget(new FlatToggle(x, yMode, col3, 16, "3D",
@@ -117,7 +119,8 @@ public class TrackScreen extends Screen {
                 .enabledWhen(() -> com.glowtrack.client.XaeroRuntime.anyXaero()));
 
         addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
-                com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport()));
+                com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport())
+                .enabledWhen(() -> selected != null && !ClientTrackState.get().points().isEmpty()));
         addRenderableWidget(FlatButton.of(x + col2 + 6, yTele, col2, 20,
                 com.glowtrack.client.Text.tr("glowtrack.gui.latest"), b -> {
                     ClientTrackState.get().setScrubRatio(1.0);

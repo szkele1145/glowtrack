@@ -69,9 +69,9 @@ public class FlatSlider extends AbstractSliderButton {
         int fillW = (int) (pw * value);
         g.fill(px, trackY, px + fillW, trackY + trackH, TRACK_FILL);
 
-        // 滑块（实心小块，居中在轨道上）
+        // 滑块（实心小块，居中在轨道上；clamp 防极端值画出轨道）
         int knobW = 6, knobH = 10;
-        int knobX = px + fillW - knobW / 2;
+        int knobX = Math.max(px, Math.min(px + pw - knobW, px + fillW - knobW / 2));
         int knobY = midY - knobH / 2;
         g.fill(knobX, knobY, knobX + knobW, knobY + knobH, KNOB);
     }

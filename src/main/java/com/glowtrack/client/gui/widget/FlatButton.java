@@ -28,11 +28,24 @@ public class FlatButton extends Button {
 
     private final int px, py, pw, ph;
     private final boolean primary;
+    private java.util.function.BooleanSupplier enabledWhen = () -> true;
 
     public FlatButton(int x, int y, int w, int h, Component msg, OnPress onPress, boolean primary) {
         super(x, y, w, h, msg, onPress, DEFAULT_NARRATION);
         this.px = x; this.py = y; this.pw = w; this.ph = h;
         this.primary = primary;
+    }
+
+    /** 禁用条件（返回 false 时按钮置灰不可点；未选中玩家时给视觉反馈）。 */
+    public FlatButton enabledWhen(java.util.function.BooleanSupplier cond) {
+        this.enabledWhen = cond;
+        return this;
+    }
+
+    @Override
+    public void onPress() {
+        if (!enabledWhen.getAsBoolean()) return;
+        super.onPress();
     }
 
     /** 便捷：普通按钮。 */
@@ -47,9 +60,12 @@ public class FlatButton extends Button {
 
     @Override
     protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        boolean hovered = isHovered() && active;
+        boolean disabled = !active || !enabledWhen.getAsBoolean();
+        boolean hovered = isHovered() && !disabled;
         int bg, border, text;
-        if (!active) {
+        if (disabled) {
+            bg = BG_DISABLED; border = BORDER_BASE; text = TXT_DISABLED;
+        } else if (hovered) {
             bg = BG_DISABLED; border = BORDER_BASE; text = TXT_DISABLED;
         } else if (hovered) {
             bg = primary ? BG_PRIMARY_H : BG_HOVER;

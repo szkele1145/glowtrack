@@ -30,3 +30,8 @@ libs/*.jar
 .mr_body.bin
 mr_project_data.json
 mrpack.exe
+.ver_cache.json
+rebuild_versions.ps1
+build_118.ps1
+build_118.txt
+build_118_tail.txt
