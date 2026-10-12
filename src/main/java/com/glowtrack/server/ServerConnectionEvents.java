@@ -18,9 +18,6 @@ public final class ServerConnectionEvents {
         if (event.getEntity() instanceof ServerPlayer sp) {
             ServerTrackManager.initIfNeeded(sp.server);
             PacketDistributor.sendToPlayer(sp, new Payloads.Hello(1));
-            if (com.glowtrack.TrackConfig.PERMISSION_NODE.get() != null) {
-                // 提示权限节点（便于 LuckPerms 管理员配置）
-            }
         }
     }
 
