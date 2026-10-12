@@ -70,6 +70,7 @@ public final class ClientTrackState {
                         ResourceLocation.tryParse(np.dim()), np.v(), np.yaw(), np.pitch()));
             }
             points.sort(java.util.Comparator.comparingLong(TrackPoint::timeMillis));
+            refreshView();
             reanchorScrub();   // 轨迹增长时游标按绝对时刻重锚定，不漂移
         }
     }
@@ -79,6 +80,7 @@ public final class ClientTrackState {
         if (tracked == null) return;
         if (points.isEmpty() || p.timeMillis() >= points.get(points.size() - 1).timeMillis()) {
             points.add(p);
+            refreshView();
             reanchorScrub();
         }
     }
@@ -87,6 +89,7 @@ public final class ClientTrackState {
         tracked = id;
         points.clear();
         trackedSet.add(id);
+        refreshView();
         scrubTimeMillis = Long.MIN_VALUE;
         scrubRatio = 1.0;
         viewEndRatio = 1.0;
@@ -94,11 +97,17 @@ public final class ClientTrackState {
 
     public UUID tracked() { return tracked; }
 
-    /** 只读视图：渲染器/GUI 遍历用，防止外部改动内部列表。 */
-    public List<TrackPoint> points() { return java.util.Collections.unmodifiableList(points); }
+    /** 只读视图缓存：包装对象仅在 points 结构变化时重建，渲染/GUI 每帧调用不再产生新包装。 */
+    private List<TrackPoint> pointsViewCache = java.util.Collections.unmodifiableList(points);
 
-    /** 渲染器用的只读视图（等价 points()，命名更清晰）。 */
-    public List<TrackPoint> pointsView() { return java.util.Collections.unmodifiableList(points); }
+    /** 只读视图：渲染器/GUI 遍历用，防止外部改动内部列表。 */
+    public List<TrackPoint> points() { return pointsViewCache; }
+
+    /** 渲染器用的只读视图（等价 points()）。 */
+    public List<TrackPoint> pointsView() { return pointsViewCache; }
+
+    /** points 结构变化后调用，刷新只读视图缓存。 */
+    private void refreshView() { pointsViewCache = java.util.Collections.unmodifiableList(points); }
 
     public boolean isTracking(UUID id) { return trackedSet.contains(id); }
 
@@ -171,6 +180,7 @@ public final class ClientTrackState {
         whitelist.clear();
         tracked = null;
         points.clear();
+        refreshView();
         trackedSet.clear();
         scrubRatio = 1.0;
         viewEndRatio = 1.0;

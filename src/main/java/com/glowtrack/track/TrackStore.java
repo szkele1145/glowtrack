@@ -175,16 +175,24 @@ public final class TrackStore {
         PlayerTrack t = new PlayerTrack(id, name, date);
         List<TrackPoint> pts = new ArrayList<>();
         for (JsonElement el : o.getAsJsonArray("points")) {
-            JsonObject e = el.getAsJsonObject();
-            pts.add(new TrackPoint(
-                    e.get("t").getAsLong(),
-                    e.get("x").getAsDouble(),
-                    e.get("y").getAsDouble(),
-                    e.get("z").getAsDouble(),
-                    ResourceLocation.tryParse(e.get("d").getAsString()),
-                    e.has("v") ? e.get("v").getAsFloat() : 0f,
-                    e.has("yaw") ? e.get("yaw").getAsFloat() : 0f,
-                    e.has("pitch") ? e.get("pitch").getAsFloat() : 0f));
+            // 逐点容错：手改文件/导入损坏数据时跳过坏点而不是整份轨迹加载失败
+            try {
+                JsonObject e = el.getAsJsonObject();
+                long ts = e.get("t").getAsLong();
+                ResourceLocation dim = ResourceLocation.tryParse(e.get("d").getAsString());
+                if (dim == null || ts < 0) continue;   // 缺关键字段（时间/维度）的点无意义
+                pts.add(new TrackPoint(
+                        ts,
+                        e.get("x").getAsDouble(),
+                        e.get("y").getAsDouble(),
+                        e.get("z").getAsDouble(),
+                        dim,
+                        e.has("v") ? e.get("v").getAsFloat() : 0f,
+                        e.has("yaw") ? e.get("yaw").getAsFloat() : 0f,
+                        e.has("pitch") ? e.get("pitch").getAsFloat() : 0f));
+            } catch (Exception ex) {
+                GlowTrack.LOGGER.warn("[GlowTrack] 跳过损坏的轨迹点: {}", ex.getMessage());
+            }
         }
         t.load(pts);
         return t;
