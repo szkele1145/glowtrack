@@ -132,7 +132,7 @@ public final class TrackStore {
      * 合并读取某玩家最近若干天的历史轨迹（含今日），返回按时间升序合并后的完整列表。
      * 用于时间轴回看时加载较长跨度的数据。
      */
-    public List<TrackPoint> loadRange(UUID id, String name, int days) {
+    public List<TrackPoint> loadRange(UUID id, int days) {
         List<TrackPoint> out = new ArrayList<>();
         LocalDate todayLd = LocalDate.now(ZONE);
         for (int i = 0; i < days; i++) {

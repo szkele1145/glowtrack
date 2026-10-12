@@ -213,7 +213,7 @@ public final class ServerTrackManager {
     /** 开始追踪：加载历史快照 + 加入订阅。 */
     public void startTracking(ServerPlayer watcher, UUID target, int days) {
         int d = Math.max(1, Math.min(days, TrackConfig.RETENTION_DAYS.get()));
-        List<TrackPoint> history = store.loadRange(target, "", d);
+        List<TrackPoint> history = store.loadRange(target, d);
         List<Payloads.NetPoint> net = new java.util.ArrayList<>();
         for (TrackPoint p : history) net.add(net(target, p));
         com.glowtrack.network.ServerNet.send(watcher, new Payloads.TrackData(target, true, net));
@@ -233,7 +233,7 @@ public final class ServerTrackManager {
 
     /** 历史传送：把观察者送到目标玩家在某时刻的位置（含跨维度）。 */
     public void teleportTo(ServerPlayer watcher, UUID target, long timeMillis) {
-        List<TrackPoint> history = store.loadRange(target, "", TrackConfig.RETENTION_DAYS.get());
+        List<TrackPoint> history = store.loadRange(target, TrackConfig.RETENTION_DAYS.get());
         if (history.isEmpty()) {
             watcher.displayClientMessage(Component.translatable("glowtrack.teleport.empty"), false);
             return;

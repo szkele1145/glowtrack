@@ -44,7 +44,8 @@ public final class PlayerTrack {
      * @return 是否成功加入
      */
     public boolean append(TrackPoint p) {
-        if (!points.isEmpty() && p.timeMillis() < lastTime()) return false;
+        // 严格升序：同毫秒重复点也拒绝（避免零距离点污染存储与网络流）
+        if (!points.isEmpty() && p.timeMillis() <= lastTime()) return false;
         points.add(p);
         return true;
     }
