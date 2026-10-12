@@ -137,12 +137,26 @@ public final class TrackRenderer {
 
     /** 点 p 到线段 a-b 的垂直距离（用于共线抽稀）。已移至 TrackGeometry。 */
 
+    /** 时间标签缓存：points 尺寸/首末时间戳/间隔设置未变时复用（渲染热路径，每帧省一次全量聚类）。 */
+    private static List<TimeLabel> labelCache = new ArrayList<>();
+    private static int labelCacheSize = -1;
+    private static long labelCacheT0, labelCacheT1;
+    private static int labelCacheInterval;
+
     /** 时间标签：每 N 分钟一点，密集区融合为范围。 */
     private static void drawTimeLabels(PoseStack pose, MultiBufferSource.BufferSource buffers,
                                        List<TrackPoint> points, List<int[]> runs,
                                        boolean use3d, double flatY) {
         Minecraft mc = Minecraft.getInstance();
-        List<TimeLabel> labels = buildTimeLabels(points);
+        int interval = Math.max(5, ClientSettings.get().timePointSeconds);
+        long t0 = points.get(0).timeMillis(), t1 = points.get(points.size() - 1).timeMillis();
+        if (points.size() != labelCacheSize || t0 != labelCacheT0 || t1 != labelCacheT1
+                || interval != labelCacheInterval) {
+            labelCache = buildTimeLabels(points);
+            labelCacheSize = points.size();
+            labelCacheT0 = t0; labelCacheT1 = t1; labelCacheInterval = interval;
+        }
+        List<TimeLabel> labels = labelCache;
         for (TimeLabel l : labels) {
             if (!inAnyRun(runs, l.pointIndex)) continue;
             double yy = use3d ? l.y : flatY;
