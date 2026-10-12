@@ -84,6 +84,6 @@ public final class Sampler {
         lastTime = time;
         lastX = x; lastY = y; lastZ = z;
         lastDim = dim;
-        if (!Double.isNaN(heading)) lastHeading = heading;
+        lastHeading = heading;   // NaN = 重置（维度切换/首点），新维度方向从零积累，避免与旧维度 heading 误比
     }
 }
