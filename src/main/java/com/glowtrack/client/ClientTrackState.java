@@ -164,6 +164,8 @@ public final class ClientTrackState {
         replaying = !replaying;
         if (replaying) {
             if (scrubRatio >= 0.999) setScrubRatio(0.0);   // 从头播
+            // 窗口跳到游标可见（游标置于窗口内 80% 处）
+            viewEndRatio = Math.max(viewSpanRatio, Math.min(1.0, scrubRatio + viewSpanRatio * 0.2));
             replayLastMs = System.currentTimeMillis();
         }
     }
