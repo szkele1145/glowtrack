@@ -51,6 +51,9 @@ public final class ServerTrackManager {
     /** 观察者 UUID -> 正在追踪的目标 UUID 集合 */
     private final Map<UUID, Set<UUID>> watchers = new ConcurrentHashMap<>();
     private int saveCooldown = 0;
+    /** 白名单缓存：原每 tick 重建 Set + 拷贝数组，现 20 秒刷新一次（白名单基本不变）。 */
+    private Set<String> whitelistCache = null;
+    private long whitelistCacheAt = 0;
 
     private ServerTrackManager(MinecraftServer server) {
         Path root = server.getServerDirectory().resolve("glowtrack");
@@ -143,8 +146,10 @@ public final class ServerTrackManager {
         }
     }
 
-    /** 读取白名单玩家名集合。 */
+    /** 读取白名单玩家名集合（带 20s 缓存；tick 热路径每秒调用 20 次，重建成本 O(n) 数组拷贝）。 */
     private Set<String> whitelistNames(MinecraftServer server) {
+        long now = System.currentTimeMillis();
+        if (whitelistCache != null && now - whitelistCacheAt < 20_000L) return whitelistCache;
         Set<String> set = new HashSet<>();
         try {
             String[] names = server.getPlayerList().getWhiteListNames();
@@ -152,6 +157,8 @@ public final class ServerTrackManager {
         } catch (Exception e) {
             GlowTrack.LOGGER.warn("[GlowTrack] 读取白名单失败: {}", e.getMessage());
         }
+        whitelistCache = set;
+        whitelistCacheAt = now;
         return set;
     }
 
