@@ -224,7 +224,8 @@ public final class ServerTrackManager {
             watcher.displayClientMessage(Component.translatable("glowtrack.teleport.empty"), false);
             return;
         }
-        TrackPoint nearest = nearest(history, timeMillis);
+        TrackPoint nearest = com.glowtrack.track.TrackTimes.nearestByTime(history, timeMillis);
+        if (nearest == null) { watcher.displayClientMessage(Component.translatable("glowtrack.teleport.empty"), false); return; }
         ServerLevel level = watcher.getServer().getLevel(
                 ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, nearest.dimension()));
         if (level == null) level = watcher.serverLevel();
@@ -234,17 +235,6 @@ public final class ServerTrackManager {
                 String.format("%.1f, %.1f, %.1f", nearest.x(), nearest.y(), nearest.z())), false);
     }
 
-    private TrackPoint nearest(List<TrackPoint> pts, long t) {
-        TrackPoint best = pts.get(0);
-        long bd = Math.abs(best.timeMillis() - t);
-        for (TrackPoint p : pts) {
-            long d = Math.abs(p.timeMillis() - t);
-            if (d < bd) { bd = d; best = p; }
-        }
-        return best;
-    }
 
-    private String fmt(long ms) {
-        return new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(ms));
-    }
+
 }

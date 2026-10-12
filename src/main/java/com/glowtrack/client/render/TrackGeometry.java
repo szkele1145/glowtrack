@@ -18,20 +18,24 @@ import java.util.List;
 public final class TrackGeometry {
     private TrackGeometry() {}
 
-    /** 彩虹 HSV → RGB（h∈[0,1) 色相）。 */
+    /** hsvToRgb 的复用缓冲：渲染热路径每帧千次调用，避免逐顶点 new float[3] 的 GC 压力。非线程安全，仅渲染线程用。 */
+    private static final float[] RGB = new float[3];
+
+    /** 彩虹 HSV → RGB（h∈[0,1) 色相）。返回共享缓冲，调用方需立即消费。 */
     public static float[] hsvToRgb(float h, float s, float v) {
         float h6 = ((h % 1f) + 1f) % 1f * 6f;
         int i = (int) Math.floor(h6) % 6;
         float f = h6 - (float) Math.floor(h6);
         float p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-        return switch (i) {
-            case 0 -> new float[]{v, t, p};
-            case 1 -> new float[]{q, v, p};
-            case 2 -> new float[]{p, v, t};
-            case 3 -> new float[]{p, q, v};
-            case 4 -> new float[]{t, p, v};
-            default -> new float[]{v, p, q};
-        };
+        switch (i) {
+            case 0: RGB[0] = v; RGB[1] = t; RGB[2] = p; break;
+            case 1: RGB[0] = q; RGB[1] = v; RGB[2] = p; break;
+            case 2: RGB[0] = p; RGB[1] = v; RGB[2] = t; break;
+            case 3: RGB[0] = p; RGB[1] = q; RGB[2] = v; break;
+            case 4: RGB[0] = t; RGB[1] = p; RGB[2] = v; break;
+            default: RGB[0] = v; RGB[1] = p; RGB[2] = q; break;
+        }
+        return RGB;
     }
 
     /** 按维度切连续段，返回 [start, end) 下标对列表。 */

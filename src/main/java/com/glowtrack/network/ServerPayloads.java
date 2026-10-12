@@ -39,6 +39,7 @@ public final class ServerPayloads {
     public static void handleStopTracking(Payloads.StopTracking msg, IPayloadContext ctx) {
         ServerPlayer player = sender(ctx);
         if (player == null) return;
+        if (!Permissions.canUse(player)) { deny(ctx); return; }
         ServerTrackManager.get().stopTracking(player, msg.player());
     }
 
@@ -48,8 +49,11 @@ public final class ServerPayloads {
         if (!Permissions.canUse(player)) { deny(ctx); return; }
         // 只同步 GUI 可控的两项：采样间隔、保留天数。
         // minMoveDistance / turnAngle 由服务端配置文件决定，不被客户端覆盖。
-        TrackConfig.SAMPLE_INTERVAL_TICKS.set(msg.sampleIntervalTicks());
-        TrackConfig.RETENTION_DAYS.set(msg.retentionDays());
+        // 服务端侧钳制范围（与配置 spec 一致），恶意客户端发任意值也不会污染配置：
+        int interval = Math.max(1, Math.min(12000, msg.sampleIntervalTicks()));
+        int retention = Math.max(1, Math.min(3650, msg.retentionDays()));
+        TrackConfig.SAMPLE_INTERVAL_TICKS.set(interval);
+        TrackConfig.RETENTION_DAYS.set(retention);
         GlowTrack.LOGGER.info("[GlowTrack] {} 更新采样设置 interval={} retention={}",
                 player.getName().getString(), msg.sampleIntervalTicks(), msg.retentionDays());
     }
