@@ -52,8 +52,8 @@ processResources {
             mod_name: 'GlowTrack',
             mod_license: 'MIT',
             mod_version: project.version,
-            mod_authors: 'GlowTrack (TG @maodie_mods, QQ 1129543042)',
-            mod_description: 'Player movement trajectory tracker with glowing 3D path rendering, timeline review, teleport, and Xaero map integration. Contact: Telegram @maodie_mods / QQ 1129543042'
+            mod_authors: 'GlowTrack',
+            mod_description: 'Player movement trajectory tracker with glowing 3D path rendering, timeline review, teleport, and Xaero map integration.'
     ]
     inputs.properties replaceProperties
     filesMatching('META-INF/neoforge.mods.toml') {

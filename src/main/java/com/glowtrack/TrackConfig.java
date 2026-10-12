@@ -31,7 +31,7 @@ public final class TrackConfig {
             .defineInRange("requiredOpLevel", 4, 0, 4);
 
     public static final ModConfigSpec.ConfigValue<String> PERMISSION_NODE = B
-            .comment("权限节点（LuckPerms 兼容），留空则仅按 OP 等级判定")
+            .comment("额外权限节点：OP 等级不足的玩家只要拥有该 LuckPerms 节点也可使用。节点 ID 固定为 glowtrack:gui（在 LuckPerms 中授权 glowtrack.gui 即可）；此开关只控制是否启用节点检查，留空 = 仅按 OP 等级判定")
             .define("permissionNode", "glowtrack.gui");
 
     public static final ModConfigSpec SPEC = B.build();

@@ -38,11 +38,13 @@ public final class Permissions {
         event.addNodes(GUI_NODE);
     }
 
-    /** 综合权限判定：OP 等级达标，或权限节点为真。 */
+    /** 综合权限判定：OP 等级达标，或（配置启用节点检查时）权限节点为真。 */
     public static boolean canUse(ServerPlayer player) {
         if (player == null) return false;
         CommandSourceStack src = player.createCommandSourceStack();
         if (src.hasPermission(TrackConfig.REQUIRED_OP_LEVEL.get())) return true;
+        String node = TrackConfig.PERMISSION_NODE.get();
+        if (node == null || node.isBlank()) return false;   // 留空 = 仅按 OP 等级
         try {
             return Boolean.TRUE.equals(PermissionAPI.getPermission(player, GUI_NODE));
         } catch (Exception e) {

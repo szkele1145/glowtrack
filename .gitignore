@@ -24,3 +24,9 @@ Thumbs.db
 *.err.log
 libs/*.jar
 !libs/.gitkeep
+
+# 发布临时产物
+.mr_body.json
+.mr_body.bin
+mr_project_data.json
+mrpack.exe

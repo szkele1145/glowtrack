@@ -19,7 +19,7 @@ public final class ServerPayloads {
     private static void deny(IPayloadContext ctx) {
         ServerPlayer sp = sender(ctx);
         if (sp != null)
-            sp.displayClientMessage(Component.literal("[GlowTrack] 没有权限使用追踪功能"), false);
+            sp.displayClientMessage(Component.translatable("glowtrack.gui.no_permission"), false);
     }
 
     public static void handleListReq(Payloads.TrackListReq msg, IPayloadContext ctx) {

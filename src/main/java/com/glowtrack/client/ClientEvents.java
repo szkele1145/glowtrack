@@ -44,7 +44,10 @@ public final class ClientEvents {
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             while (OPEN_GUI.consumeClick()) {
-                if (mc.player != null) mc.setScreen(new TrackScreen());
+                if (mc.player == null) continue;
+                // 已在追踪界面时再按 K = 关闭（游戏 ESC 语义），避免重建屏幕丢搜索状态
+                if (mc.screen instanceof TrackScreen) mc.setScreen(null);
+                else mc.setScreen(new TrackScreen());
             }
             // 降级模式：本地采样已加载的追踪目标
             if (mc.player != null && !ClientTrackState.get().isServerMode()) {
