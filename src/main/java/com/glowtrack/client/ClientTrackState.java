@@ -76,6 +76,23 @@ public final class ClientTrackState {
         }
     }
 
+    /**
+     * 本地导入轨迹（/gt import）：把导出的 JSON 轨迹"打开"到当前会话。
+     * tracked/points 全量替换，游标与窗口复位到最新；不进服务端存储。
+     */
+    public void importPoints(UUID id, String name, List<TrackPoint> imported) {
+        tracked = id;
+        points.clear();
+        trackedSet.add(id);
+        points.addAll(imported);
+        points.sort(java.util.Comparator.comparingLong(TrackPoint::timeMillis));
+        refreshView();
+        scrubTimeMillis = Long.MIN_VALUE;
+        scrubRatio = 1.0;
+        viewEndRatio = 1.0;
+        replaying = false;   // 换目标：停回放
+    }
+
     /** 本地降级模式：追加一个采样点。 */
     public void localAppend(TrackPoint p) {
         if (tracked == null) return;
@@ -153,8 +170,22 @@ public final class ClientTrackState {
     /** 上一 tick 的现实时间戳（毫秒），用于按现实时间推进游标。 */
     private long replayLastMs;
 
-    /** 回放倍速 30×：现实 1 秒 = 游戏 30 秒（等价每 tick += 1.0/(totalSeconds/30*20)，慢轨迹快放）。 */
-    private static final double REPLAY_SPEEDUP = 30.0;
+    /** 回放倍速：现实 1 秒 = 游戏多少秒（等价每 tick += 1.0/(totalSeconds/speedup*20)，慢轨迹快放）。可经 setReplaySpeed 调节。 */
+    private static double REPLAY_SPEEDUP = 30.0;
+
+    /** 回放倍速下限（现实 1 秒 = 游戏 1 秒）。 */
+    private static final double REPLAY_SPEED_MIN = 1.0;
+
+    /** 回放倍速上限（现实 1 秒 = 游戏 120 秒）。 */
+    private static final double REPLAY_SPEED_MAX = 120.0;
+
+    /** 设置回放倍速（clamp 1..120）。 */
+    public static void setReplaySpeed(double x) {
+        REPLAY_SPEEDUP = Math.max(REPLAY_SPEED_MIN, Math.min(REPLAY_SPEED_MAX, x));
+    }
+
+    /** 当前回放倍速。 */
+    public static double getReplaySpeed() { return REPLAY_SPEEDUP; }
 
     public boolean isReplaying() { return replaying; }
 

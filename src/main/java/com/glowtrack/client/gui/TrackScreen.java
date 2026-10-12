@@ -196,6 +196,9 @@ public class TrackScreen extends Screen {
         String msg = hasShiftDown()
                 ? ClientTrackState.get().exportSelectedCsv(selected.name())
                 : ClientTrackState.get().exportSelected(selected.name());
+        // 成功消息后追加保存目录提示（返回串以文件名结尾即成功；失败串不加提示）
+        if (msg != null && !msg.startsWith("导出失败") && !msg.equals("无轨迹可导出"))
+            msg = msg + com.glowtrack.client.Text.s("glowtrack.export.hint");
         if (minecraft != null && minecraft.player != null)
             minecraft.player.displayClientMessage(Component.literal("[GlowTrack] " + msg), false);
     }

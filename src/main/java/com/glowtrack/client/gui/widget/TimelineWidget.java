@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -110,9 +111,11 @@ public class TimelineWidget extends AbstractWidget {
         int thumbW = Math.max(6, (int) (win * (tlW - 1)));
         g.fill(thumbX, sbY, thumbX + thumbW, sbY + 2, BAR_THUMB);
 
-        // 窗口起止时刻（滚动条右侧）
+        // 窗口起止时刻（滚动条右侧），末尾附当前回放速率
         String range = TrackTimes.hms(t0 + (long) (vStart * span))
-                + " → " + TrackTimes.hms(t0 + (long) (vEnd * span));
+                + " → " + TrackTimes.hms(t0 + (long) (vEnd * span))
+                + " · " + com.glowtrack.client.Text.s("glowtrack.gui.replayspeed",
+                        fmtSpeed(ClientTrackState.getReplaySpeed()));
         g.drawString(font, range, tlX + tlW - font.width(range), sbY + 5, TXT_DIM, false);
 
         // 悬停预览：该时刻 时间+坐标 提示框
@@ -131,6 +134,12 @@ public class TimelineWidget extends AbstractWidget {
                 }
             }
         }
+    }
+
+    /** 速率格式：<10 显示一位小数（如 4.5x），否则取整（如 30x）。 */
+    private static String fmtSpeed(double v) {
+        if (v < 10) return String.format(java.util.Locale.ROOT, "%.1f", v);
+        return String.format(java.util.Locale.ROOT, "%.0f", v);
     }
 
     // ---- 交互 ----
@@ -173,8 +182,13 @@ public class TimelineWidget extends AbstractWidget {
     @Override
     public boolean mouseScrolled(double mx, double my, double xScroll, double yScroll) {
         if (!isMouseOver(mx, my)) return false;   // 面板外滚轮不吞（留给玩家列表滚动）
-        // 滚轮缩放窗口（锚点=鼠标位置）
         ClientTrackState cs = ClientTrackState.get();
+        // Ctrl+滚轮 = 调回放速率（×1.5 / ÷1.5，clamp 1..120）；普通滚轮 = 缩放窗口（锚点=鼠标位置）
+        if (Screen.hasControlDown()) {
+            ClientTrackState.setReplaySpeed(
+                    ClientTrackState.getReplaySpeed() * (yScroll > 0 ? 1.5 : 1 / 1.5));
+            return true;
+        }
         double anchor = cs.viewStartRatio()
                 + (mx - getX()) / (double) width * (cs.viewEndRatio() - cs.viewStartRatio());
         cs.zoomView(yScroll > 0 ? 0.8 : 1.25, anchor);
