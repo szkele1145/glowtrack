@@ -82,7 +82,9 @@ public final class TrackStore {
     public boolean append(UUID id, String name, TrackPoint p) {
         PlayerTrack t = trackFor(id, name);
         boolean ok = t.append(p);
-        if (ok) t.trimToSize(com.glowtrack.TrackConfig.MAX_POINTS_PER_PLAYER.get());
+        // 只在超限时裁剪（避免每 append 一次 O(n) subList 检查；50k 点时每秒 20 次）
+        if (ok && t.size() > com.glowtrack.TrackConfig.MAX_POINTS_PER_PLAYER.get())
+            t.trimToSize(com.glowtrack.TrackConfig.MAX_POINTS_PER_PLAYER.get());
         return ok;
     }
 
