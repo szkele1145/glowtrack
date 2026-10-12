@@ -1,5 +1,6 @@
 package com.glowtrack.client.xaero;
 
+import com.glowtrack.GlowTrack;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -32,13 +33,35 @@ public class XaeroMixinPlugin implements IMixinConfigPlugin {
         }
     }
 
+    // ---- 可观测性（防重日志 + mixin 激活标志）----
+    private static boolean loggedDetect = false;
+    private static final java.util.concurrent.atomic.AtomicBoolean MM_ACTIVATED =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    private static final java.util.concurrent.atomic.AtomicBoolean WM_ACTIVATED =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /** mixin 注入体首行调用：第一次真正执行时打一条激活日志（证明注入+运行都成功）。 */
+    public static void markActivated(String className) {
+        java.util.concurrent.atomic.AtomicBoolean flag =
+                className.endsWith("MixinMinimap") ? MM_ACTIVATED : WM_ACTIVATED;
+        if (flag != null && flag.compareAndSet(false, true)) {
+            com.glowtrack.GlowTrack.LOGGER.info("[GlowTrack] Xaero 轨迹叠加已激活（{}）", className);
+        }
+    }
+
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         // 每次现查（无缓存），防兼容层提前点火钉死错误结果
-        if (mixinClassName.endsWith("MixinMinimap")) {
-            return resourcePresent("xaero/common/minimap/MinimapProcessor.class");
+        boolean mm = mixinClassName.endsWith("MixinMinimap");
+        boolean present = resourcePresent(mm
+                ? "xaero/common/minimap/MinimapProcessor.class"
+                : "xaero/map/gui/GuiMap.class");
+        if (!loggedDetect) {
+            loggedDetect = true;
+            com.glowtrack.GlowTrack.LOGGER.info("[GlowTrack] Xaero 检测{}，将{} {}",
+                    present ? "成功" : "失败（功能置灰）", present ? "应用" : "跳过", mixinClassName);
         }
-        return resourcePresent("xaero/map/gui/GuiMap.class");
+        return present;
     }
 
     @Override public void onLoad(String mixinPackage) {}

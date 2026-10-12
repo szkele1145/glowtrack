@@ -1,5 +1,6 @@
 package com.glowtrack.client.xaero;
 
+import com.glowtrack.GlowTrack;
 import com.glowtrack.client.ClientSettings;
 import com.glowtrack.client.ClientTrackState;
 import com.glowtrack.track.TrackPoint;
@@ -43,6 +44,7 @@ public abstract class MixinMinimap {
                                          double scale, int size, int boxSize, float partial,
                                          xaero.common.graphics.CustomVertexConsumers cvc, CallbackInfo ci) {
         try {
+            XaeroMixinPlugin.markActivated("MixinMinimap");
             if (!ClientSettings.get().xaeroMap) return;
             List<TrackPoint> pts = ClientTrackState.get().pointsView();
             if (pts.size() < 2) return;

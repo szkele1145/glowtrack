@@ -1,5 +1,6 @@
 package com.glowtrack.client.xaero;
 
+import com.glowtrack.GlowTrack;
 import com.glowtrack.client.ClientSettings;
 import com.glowtrack.client.ClientTrackState;
 import com.glowtrack.track.TrackPoint;
@@ -39,6 +40,7 @@ public abstract class MixinGuiMap {
     private void glowtrack$drawTrajectory(CallbackInfo ci,
             @com.llamalad7.mixinextras.sugar.Local(name = "matrixStack") PoseStack pose) {
         try {
+            XaeroMixinPlugin.markActivated("MixinGuiMap");
             if (!ClientSettings.get().xaeroMap) return;
             List<TrackPoint> pts = ClientTrackState.get().pointsView();
             if (pts.size() < 2) return;

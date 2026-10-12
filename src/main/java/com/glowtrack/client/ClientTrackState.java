@@ -63,6 +63,7 @@ public final class ClientTrackState {
             scrubTimeMillis = Long.MIN_VALUE;
             scrubRatio = 1.0;
             viewEndRatio = 1.0;
+            replaying = false;   // 切换目标：停回放
         }
         if (id.equals(tracked)) {
             for (Payloads.NetPoint np : data.points()) {
@@ -93,6 +94,7 @@ public final class ClientTrackState {
         scrubTimeMillis = Long.MIN_VALUE;
         scrubRatio = 1.0;
         viewEndRatio = 1.0;
+        replaying = false;   // 切换目标：停回放
     }
 
     public UUID tracked() { return tracked; }
@@ -142,6 +144,61 @@ public final class ClientTrackState {
     public double viewEndRatio() { return viewEndRatio; }
     public double viewSpanRatio() { return viewSpanRatio; }
     public double viewStartRatio() { return Math.max(0.0, viewEndRatio - viewSpanRatio); }
+
+    // ==================== 时间轴回放 ====================
+
+    /** 是否正在回放动画（游标自动匀速推进，像看录像一样）。 */
+    private boolean replaying;
+
+    /** 上一 tick 的现实时间戳（毫秒），用于按现实时间推进游标。 */
+    private long replayLastMs;
+
+    /** 回放速率：30 分钟游戏轨迹 / 1 秒现实。 */
+    private static final double REPLAY_GAME_SECONDS_PER_REAL_SECOND = 30.0 * 60.0;
+
+    public boolean isReplaying() { return replaying; }
+
+    /** 切换回放状态。开启时若游标已在末尾（1.0）则从头开始播放。 */
+    public void toggleReplay() {
+        replaying = !replaying;
+        if (replaying) {
+            if (points.isEmpty() || scrubRatio >= 0.999) {
+                setScrubRatio(points.isEmpty() ? 1.0 : 0.0);
+            }
+            replayLastMs = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * 每客户端 tick 调用：回放时按现实时间匀速推进游标。
+     * 速率 = 30 分钟游戏轨迹 / 1 秒现实（慢轨迹快放：短轨迹更快播完）。
+     * 推进到 1.0 自动停止。
+     */
+    public void tickReplay() {
+        if (!replaying) return;
+        if (points.isEmpty()) { replaying = false; return; }
+        long now = System.currentTimeMillis();
+        long dt = Math.min(1000L, Math.max(0L, now - replayLastMs));   // 防卡顿补帧过长
+        replayLastMs = now;
+        if (dt == 0) return;
+
+        long t0 = points.get(0).timeMillis(), t1 = points.get(points.size() - 1).timeMillis();
+        long span = t1 - t0;
+        if (span <= 0) {   // 单点/零时长轨迹：直接播完
+            setScrubRatio(1.0);
+            replaying = false;
+            return;
+        }
+        // 游标按"绝对游戏时刻"推进：advanceMs = dt 现实毫秒 × (1800 秒游戏/秒现实)
+        double gameMsPerRealMs = REPLAY_GAME_SECONDS_PER_REAL_SECOND * 1000.0 / 1000.0;
+        long targetTime = t0 + (long) (scrubRatio * span) + (long) (dt * gameMsPerRealMs);
+        if (targetTime >= t1) {
+            setScrubRatio(1.0);
+            replaying = false;   // 播完自动停
+        } else {
+            setScrubRatio((targetTime - t0) / (double) span);
+        }
+    }
 
     /** 平移时间轴可见窗口（正=向最新，负=向历史）。 */
     public void panView(double deltaRatio) {

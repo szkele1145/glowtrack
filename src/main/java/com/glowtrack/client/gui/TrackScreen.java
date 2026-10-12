@@ -238,7 +238,8 @@ public class TrackScreen extends Screen {
                     x, yRead, 0xD29922, false);
             g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.dim") + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
             String dist = " · " + com.glowtrack.client.Text.s("glowtrack.gui.readout.dist", fmtDist(totalDistance(pts)));
-            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()) + dist,
+            String ptsStr = " · " + com.glowtrack.client.Text.s("glowtrack.gui.readout.points", fmtPoints(pts.size()));
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()) + dist + ptsStr,
                     x, yRead + 24, 0x8B949E, false);
         } else {
             g.drawString(font, selected == null ? com.glowtrack.client.Text.s("glowtrack.gui.noselection") : com.glowtrack.client.Text.s("glowtrack.gui.waiting"), x, yRead, 0x6E7681, false);
@@ -287,6 +288,12 @@ public class TrackScreen extends Screen {
     private static String fmtDist(double meters) {
         if (meters < 1000) return String.format(java.util.Locale.ROOT, "%.0f m", meters);
         return String.format(java.util.Locale.ROOT, "%.1f km", meters / 1000.0);
+    }
+
+    /** 点数格式：>10000 显示 "x.xk"，其余原样。 */
+    private static String fmtPoints(int n) {
+        if (n > 10000) return String.format(java.util.Locale.ROOT, "%.1fk", n / 1000.0);
+        return String.valueOf(n);
     }
 
     // ---- 交互（时间轴/列表交互已由各自 widget 处理）----
