@@ -42,6 +42,7 @@ public class TrackScreen extends Screen {
     private Payloads.PlayerEntry selected;
     private com.glowtrack.client.gui.widget.TimelineWidget timeline;
     private com.glowtrack.client.gui.widget.PlayerListPane listPane;
+    private com.glowtrack.client.gui.widget.FlatButton replayBtn;   // 回放按钮（文案随状态切换）
 
     public TrackScreen() {
         super(com.glowtrack.client.Text.tr("glowtrack.gui.title"));
@@ -118,14 +119,20 @@ public class TrackScreen extends Screen {
                 () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); })
                 .enabledWhen(() -> com.glowtrack.client.XaeroRuntime.anyXaero()));
 
-        addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
+        addRenderableWidget(FlatButton.of(x, yTele, col3, 20,
                 com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport())
                 .enabledWhen(() -> selected != null && !ClientTrackState.get().points().isEmpty()));
-        addRenderableWidget(FlatButton.of(x + col2 + 6, yTele, col2, 20,
+        addRenderableWidget(FlatButton.of(x + col3 + 6, yTele, col3, 20,
                 com.glowtrack.client.Text.tr("glowtrack.gui.latest"), b -> {
                     ClientTrackState.get().setScrubRatio(1.0);
                     ClientTrackState.get().snapViewToLatest();
                 }));
+        // 回放按钮：文案随回放状态切换（▶ 回放 / ⏸ 停止回放），每帧在 renderBackground 刷新
+        replayBtn = FlatButton.of(x + 2 * (col3 + 6), yTele, col3, 20,
+                com.glowtrack.client.Text.tr("glowtrack.gui.replay"), b ->
+                        ClientTrackState.get().toggleReplay());
+        replayBtn.enabledWhen(() -> !ClientTrackState.get().points().isEmpty());
+        addRenderableWidget(replayBtn);
 
         addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, com.glowtrack.client.Text.s("glowtrack.gui.timepoint"),
                 () -> (ClientSettings.get().timePointSeconds - 5) / 295.0,
@@ -206,6 +213,11 @@ public class TrackScreen extends Screen {
         // 问题反馈（国外 TG / 国内 QQ）
         String contact = com.glowtrack.client.Text.s("glowtrack.gui.contact");
         g.drawString(font, contact, width - font.width(mode) - 10 - font.width(contact) - 18, 9, 0x6E7681, false);
+
+        // 回放按钮文案随状态切换（▶ 回放 / ⏸ 停止回放）
+        if (replayBtn != null)
+            replayBtn.setMessage(com.glowtrack.client.Text.tr(ClientTrackState.get().isReplaying()
+                    ? "glowtrack.gui.replaying" : "glowtrack.gui.replay"));
 
         drawRightContent(g);
         if (timeline != null)

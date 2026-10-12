@@ -153,26 +153,24 @@ public final class ClientTrackState {
     /** 上一 tick 的现实时间戳（毫秒），用于按现实时间推进游标。 */
     private long replayLastMs;
 
-    /** 回放速率：30 分钟游戏轨迹 / 1 秒现实。 */
-    private static final double REPLAY_GAME_SECONDS_PER_REAL_SECOND = 30.0 * 60.0;
+    /** 回放倍速 30×：现实 1 秒 = 游戏 30 秒（等价每 tick += 1.0/(totalSeconds/30*20)，慢轨迹快放）。 */
+    private static final double REPLAY_SPEEDUP = 30.0;
 
     public boolean isReplaying() { return replaying; }
 
-    /** 切换回放状态。开启时若游标已在末尾（1.0）则从头开始播放。 */
+    /** 切换回放状态。开启时若游标已在末尾（≈1.0）则从头开始播放；无轨迹时不开启。 */
     public void toggleReplay() {
+        if (!replaying && points.isEmpty()) return;
         replaying = !replaying;
         if (replaying) {
-            if (points.isEmpty() || scrubRatio >= 0.999) {
-                setScrubRatio(points.isEmpty() ? 1.0 : 0.0);
-            }
+            if (scrubRatio >= 0.999) setScrubRatio(0.0);   // 从头播
             replayLastMs = System.currentTimeMillis();
         }
     }
 
     /**
-     * 每客户端 tick 调用：回放时按现实时间匀速推进游标。
-     * 速率 = 30 分钟游戏轨迹 / 1 秒现实（慢轨迹快放：短轨迹更快播完）。
-     * 推进到 1.0 自动停止。
+     * 每客户端 tick 调用：回放时按绝对时刻匀速推进游标（数据增长不漂移）。
+     * 推进到末尾自动停止。
      */
     public void tickReplay() {
         if (!replaying) return;
@@ -189,14 +187,16 @@ public final class ClientTrackState {
             replaying = false;
             return;
         }
-        // 游标按"绝对游戏时刻"推进：advanceMs = dt 现实毫秒 × (1800 秒游戏/秒现实)
-        double gameMsPerRealMs = REPLAY_GAME_SECONDS_PER_REAL_SECOND * 1000.0 / 1000.0;
-        long targetTime = t0 + (long) (scrubRatio * span) + (long) (dt * gameMsPerRealMs);
+        long targetTime = t0 + (long) (scrubRatio * span) + (long) (dt * REPLAY_SPEEDUP);
         if (targetTime >= t1) {
             setScrubRatio(1.0);
             replaying = false;   // 播完自动停
         } else {
             setScrubRatio((targetTime - t0) / (double) span);
+        }
+        // 游标移出可见窗口时窗口跟随（播放器语义）：游标置于窗口内 80% 处，前方留预览空间
+        if (scrubRatio > viewEndRatio || scrubRatio < viewStartRatio()) {
+            viewEndRatio = Math.max(viewSpanRatio, Math.min(1.0, scrubRatio + viewSpanRatio * 0.2));
         }
     }
 
@@ -229,6 +229,7 @@ public final class ClientTrackState {
         if (tracked != null) trackedSet.remove(tracked);
         tracked = null;
         points.clear();
+        replaying = false;   // 数据清空，停回放
     }
 
     /** 重置（断开连接时）。 */
@@ -242,6 +243,7 @@ public final class ClientTrackState {
         scrubRatio = 1.0;
         viewEndRatio = 1.0;
         viewSpanRatio = 0.15;
+        replaying = false;   // 断开连接，停回放
     }
 
     /**

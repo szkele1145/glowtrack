@@ -39,14 +39,24 @@ public final class TrackRenderer {
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return;
-        List<TrackPoint> points = ClientTrackState.get().pointsView();
-        if (points.isEmpty()) return;
+        ClientTrackState state = ClientTrackState.get();
+        List<TrackPoint> all = state.pointsView();
+        if (all.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         if (buffers == null) return;
         ClientSettings s = ClientSettings.get();
+
+        // 回放模式：只画游标之前的点（渲染到游标，回放动画核心）
+        // 取前缀子列表 [0, cursorIdx]，下标空间与全列表一致（时间标签的 pointIndex 仍有效）
+        List<TrackPoint> points = all;
+        if (state.isReplaying()) {
+            int cursorIdx = replayCursorIndex(all, state.scrubRatio());
+            points = all.subList(0, Math.min(all.size(), cursorIdx + 1));
+            if (points.isEmpty()) return;
+        }
 
         PoseStack pose = event.getPoseStack();
         Vec3 cam = event.getCamera().getPosition();
@@ -82,11 +92,18 @@ public final class TrackRenderer {
         RenderSystem.enableDepthTest();
         buffers.endBatch();   // 先 flush 线条
 
-        if (s.mode3d) drawTimeLabels(pose, buffers, points, runs, true, 0);
-        if (s.mode2d) drawTimeLabels(pose, buffers, points, runs, false, flatY);
+        // 时间标签：用全列表构建缓存（回放中裁剪列表每帧变，避免缓存失效重建），
+        // 但用裁剪后的 runs 过滤——回放时只显示游标之前的标签
+        if (s.mode3d) drawTimeLabels(pose, buffers, all, runs, true, 0);
+        if (s.mode2d) drawTimeLabels(pose, buffers, all, runs, false, flatY);
         buffers.endBatch();
 
         pose.popPose();
+    }
+
+    /** 回放模式：游标对应的全列表下标（时间比例 × (size-1)，与 TimelineWidget 渲染一致）。 */
+    private static int replayCursorIndex(List<TrackPoint> all, double scrubRatio) {
+        return Math.max(0, Math.min(all.size() - 1, (int) Math.round(scrubRatio * (all.size() - 1))));
     }
 
     /**

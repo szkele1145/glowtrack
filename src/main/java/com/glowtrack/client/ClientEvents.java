@@ -53,6 +53,10 @@ public final class ClientEvents {
             if (mc.player != null && !ClientTrackState.get().isServerMode()) {
                 localSample(mc.player);
             }
+            // 时间轴回放：游标自动匀速推进（回放动画）
+            if (mc.player != null) {
+                ClientTrackState.get().tickReplay();
+            }
         }
 
         @SubscribeEvent
