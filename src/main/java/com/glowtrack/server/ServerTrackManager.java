@@ -226,9 +226,10 @@ public final class ServerTrackManager {
         if (set != null) set.remove(target);
     }
 
-    /** 玩家退出时清理其订阅关系。 */
+    /** 玩家退出时清理其订阅关系与采样器（该玩家可能同时是观察者和被追踪者）。 */
     public void removeWatcher(UUID watcher) {
         watchers.remove(watcher);
+        samplers.remove(watcher);
     }
 
     /** 历史传送：把观察者送到目标玩家在某时刻的位置（含跨维度）。 */
