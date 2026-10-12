@@ -54,8 +54,10 @@ public class FlatSlider extends AbstractSliderButton {
     @Override
     public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         var font = Minecraft.getInstance().font;
-        // 顶部标签文本
-        g.drawString(font, getMessage().getString(), px, py, TXT, false);
+        // 顶部标签文本（超出控件宽度则截断，防溢出到邻栏）
+        String msg = getMessage().getString();
+        var fitted = font.plainSubstrByWidth(msg, pw - 2);
+        g.drawString(font, fitted, px, py, TXT, false);
 
         // 轨道（下方细条）
         int trackY = py + ph - 4;

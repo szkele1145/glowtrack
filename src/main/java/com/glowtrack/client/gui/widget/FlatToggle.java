@@ -66,8 +66,9 @@ public class FlatToggle extends Button {
         g.fill(knobX, knobY, knobX + knob, knobY + knob,
                 !en ? 0xFF484F58 : (on ? KNOB_ON : KNOB_OFF));
 
-        // 标签
-        g.drawString(font, label, trackX + trackW + 6, py + (ph - 8) / 2,
-                !en ? 0xFF484F58 : TXT, false);
+        // 标签（控件宽度不足以容纳时省略，防小分辨率溢出）
+        if (pw >= trackW + 8 + font.width(label))
+            g.drawString(font, label, trackX + trackW + 6, py + (ph - 8) / 2,
+                    !en ? 0xFF484F58 : TXT, false);
     }
 }
