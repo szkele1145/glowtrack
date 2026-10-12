@@ -234,11 +234,18 @@ public class TrackScreen extends Screen {
         }
     }
 
+    /** 头像纹理缓存（与 PlayerListPane 同款；两处各自持有，量小无碍）。 */
+    private static final java.util.Map<UUID, PlayerSkin> SKIN_CACHE = new java.util.HashMap<>();
+
     private void drawHead(GuiGraphics g, UUID id, String name, int x, int y) {
-        try {
-            PlayerSkin skin = Minecraft.getInstance().getSkinManager().getInsecureSkin(new GameProfile(id, name));
-            if (skin != null && skin.texture() != null) { g.blit(skin.texture(), x, y, 8, 8, 8, 8, 64, 64); return; }
-        } catch (Throwable ignored) {}
+        PlayerSkin skin = SKIN_CACHE.get(id);
+        if (skin == null) {
+            try {
+                skin = Minecraft.getInstance().getSkinManager().getInsecureSkin(new GameProfile(id, name));
+                if (skin != null) SKIN_CACHE.put(id, skin);
+            } catch (Throwable ignored) {}
+        }
+        if (skin != null && skin.texture() != null) { g.blit(skin.texture(), x, y, 8, 8, 8, 8, 64, 64); return; }
         g.fill(x, y, x + 16, y + 16, 0xFF30363D);
     }
 
