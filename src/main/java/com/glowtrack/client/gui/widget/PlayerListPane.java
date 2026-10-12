@@ -103,6 +103,7 @@ public class PlayerListPane extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (!isMouseOver(mx, my)) return false;
         int idx = (int) ((my - getY() + scrollPx) / ROW);
         if (idx >= 0 && idx < items.size()) {
             selected = items.get(idx);
@@ -114,6 +115,7 @@ public class PlayerListPane extends AbstractWidget {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (!isMouseOver(mx, my)) return false;   // 面板外的滚轮不吞事件（不挡时间轴缩放）
         int maxScroll = Math.max(0, items.size() * ROW - height);
         scrollPx = Math.max(0, Math.min(scrollPx - (int) (sy * 12), maxScroll));
         return true;

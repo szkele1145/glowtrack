@@ -137,6 +137,7 @@ public class TimelineWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (!isMouseOver(mx, my)) return false;   // 面板外不吞点击
         dragging = true;
         dragMoved = false;
         dragStartX = mx;
@@ -171,6 +172,7 @@ public class TimelineWidget extends AbstractWidget {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double xScroll, double yScroll) {
+        if (!isMouseOver(mx, my)) return false;   // 面板外滚轮不吞（留给玩家列表滚动）
         // 滚轮缩放窗口（锚点=鼠标位置）
         ClientTrackState cs = ClientTrackState.get();
         double anchor = cs.viewStartRatio()
