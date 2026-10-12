@@ -94,8 +94,9 @@ public final class ServerTrackManager {
         long now = System.currentTimeMillis();
 
         // 每个观察者一个攒批列表：本 tick 内多个被追踪玩家的点合并进一个包
-        Map<UUID, List<Payloads.NetPoint>> batch = new java.util.HashMap<>();
-        Map<UUID, UUID> batchTarget = new java.util.HashMap<>();
+        // key = watcher UUID，value = (target UUID -> 点列表)。按目标分组，
+        // 因为 TrackData.player 是单值——多目标混在一个包里会被客户端按 id 过滤丢弃。
+        Map<UUID, Map<UUID, List<Payloads.NetPoint>>> batch = new java.util.HashMap<>();
 
         for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
             UUID id = sp.getUUID();
@@ -111,22 +112,23 @@ public final class ServerTrackManager {
             TrackPoint p = new TrackPoint(now, x, y, z, dim, speed, sp.getYRot(), sp.getXRot());
             store.append(id, name, p);
 
-            // 若正被他人追踪，攒批（不逐点发包）
+            // 若正被他人追踪，按 (观察者, 目标) 攒批
             for (Map.Entry<UUID, Set<UUID>> e : watchers.entrySet()) {
                 if (e.getValue().contains(id)) {
-                    batch.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(net(id, p));
-                    batchTarget.putIfAbsent(e.getKey(), id);
+                    batch.computeIfAbsent(e.getKey(), k -> new java.util.HashMap<>())
+                         .computeIfAbsent(id, k -> new ArrayList<>()).add(net(id, p));
                 }
             }
         }
 
-        // 每观察者每 tick 至多一个包（单目标攒批推送；多目标时取第一个目标，后续 tick 跟进）
-        for (Map.Entry<UUID, List<Payloads.NetPoint>> e : batch.entrySet()) {
+        // 每观察者每目标每 tick 至多一个包（观察者同时追多个玩家时各收各的包）
+        for (Map.Entry<UUID, Map<UUID, List<Payloads.NetPoint>>> e : batch.entrySet()) {
             ServerPlayer watcher = server.getPlayerList().getPlayer(e.getKey());
             if (watcher == null) continue;
-            UUID targetId = batchTarget.get(e.getKey());
-            PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(
-                    targetId, false, e.getValue()));
+            for (Map.Entry<UUID, List<Payloads.NetPoint>> t : e.getValue().entrySet()) {
+                PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(
+                        t.getKey(), false, t.getValue()));
+            }
         }
 
         // 周期落盘（异步：磁盘 IO 不阻塞主线程 tick；TrackStore 内部已锁，快照后写盘安全）

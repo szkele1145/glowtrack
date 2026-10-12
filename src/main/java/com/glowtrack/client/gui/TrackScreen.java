@@ -155,6 +155,10 @@ public class TrackScreen extends Screen {
     // ---- 动作 ----
     private void startTrack() {
         if (selected == null) return;
+        // 切换目标时先向服务端停订旧目标（服务端 watchers 不清理会残留推送旧目标）
+        UUID prev = ClientTrackState.get().tracked();
+        if (prev != null && !prev.equals(selected.id()) && ClientTrackState.get().isServerMode())
+            ClientTrackState.sendToServer(new Payloads.StopTracking(prev));
         ClientTrackState.get().setLocalTracked(selected.id(), selected.name());
         if (ClientTrackState.get().isServerMode())
             ClientTrackState.sendToServer(new Payloads.StartTracking(selected.id(), ClientSettings.get().retentionDays));
