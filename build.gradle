@@ -3,7 +3,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.78'
 }
 
-version = '1.0.0'
+version = '1.1.9'
 group = 'com.glowtrack'
 base { archivesName = 'glowtrack' }
 
@@ -30,8 +30,8 @@ neoForge {
     }
 }
 
-// Xaero 世界地图（可选依赖，仅编译期用于 Mixin GuiMap 画线；未安装则运行时跳过）
-// jar 已手动下载到 libs/（本地代理对 chocolateminecraft.com 做 TLS 拦截，远程仓库不可靠）
+// Xaero 世界地图（可选依赖，仅编译期用于 Mixin GuiMap 画线；未安装则运行时跳过�?
+// jar 已手动下载到 libs/（本地代理对 chocolateminecraft.com �?TLS 拦截，远程仓库不可靠�?
 dependencies {
     compileOnly files('libs/xaeroworldmap-neoforge-1.21.1-1.47.0.jar')
     compileOnly files('libs/xaerominimap-neoforge-1.21.1-26.6.0.jar')
@@ -62,8 +62,8 @@ processResources {
 }
 
 // ==== Modrinth 发布 ====
-// 本机代理会改写 POST 请求体导致 Modrinth API 返回 400，故未自动发布。
-// 有干净网络时，取消下方注释并安装 modrinthgradle 插件即可一键发布：
+// 本机代理会改�?POST 请求体导�?Modrinth API 返回 400，故未自动发布�?
+// 有干净网络时，取消下方注释并安�?modrinthgradle 插件即可一键发布：
 //   plugins { id 'com.modrinth.modrinthgrge' version '<latest>' }
 //   modrinth {
 //       token = System.getenv('MODRINTH_TOKEN')
@@ -73,5 +73,5 @@ processResources {
 //       gameVersions = ['1.21.1']; loaders = ['neoforge']
 //       dependencies { optional.project('xaeros-world-map'); optional.project('xaeros-minimap') }
 //   }
-// 或直接在 modrinth.com 上传 build/libs/glowtrack-1.0.0.jar，
-// 前置依赖手动设 Xaero's World Map / Minimap 为 Optional。
+// 或直接在 modrinth.com 上传 build/libs/glowtrack-1.0.0.jar�?
+// 前置依赖手动�?Xaero's World Map / Minimap �?Optional�?

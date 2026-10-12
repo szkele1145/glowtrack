@@ -2,10 +2,10 @@ package com.glowtrack.server;
 
 import com.glowtrack.GlowTrack;
 import com.glowtrack.network.Payloads;
+import com.glowtrack.network.ServerNet;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 /** 玩家进服时下发握手包，让客户端进入服务端模式。 */
@@ -17,7 +17,8 @@ public final class ServerConnectionEvents {
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) {
             ServerTrackManager.initIfNeeded(sp.server);
-            PacketDistributor.sendToPlayer(sp, new Payloads.Hello(1));
+            // 对端未装 GlowTrack 时安全跳过（optional 通道，不阻断进服）
+            ServerNet.send(sp, new Payloads.Hello(1));
         }
     }
 

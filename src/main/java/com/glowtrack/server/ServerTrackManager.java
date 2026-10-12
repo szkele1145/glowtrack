@@ -17,7 +17,6 @@ import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -126,7 +125,7 @@ public final class ServerTrackManager {
             ServerPlayer watcher = server.getPlayerList().getPlayer(e.getKey());
             if (watcher == null) continue;
             for (Map.Entry<UUID, List<Payloads.NetPoint>> t : e.getValue().entrySet()) {
-                PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(
+                com.glowtrack.network.ServerNet.send(watcher, new Payloads.TrackData(
                         t.getKey(), false, t.getValue()));
             }
         }
@@ -178,7 +177,7 @@ public final class ServerTrackManager {
             if (!online) id = resolveOfflineId(server, name);
             entries.add(new Payloads.PlayerEntry(id, name, online));
         }
-        PacketDistributor.sendToPlayer(watcher, new Payloads.TrackList(entries));
+        com.glowtrack.network.ServerNet.send(watcher, new Payloads.TrackList(entries));
     }
 
     /**
@@ -210,7 +209,7 @@ public final class ServerTrackManager {
         List<TrackPoint> history = store.loadRange(target, "", d);
         List<Payloads.NetPoint> net = new java.util.ArrayList<>();
         for (TrackPoint p : history) net.add(net(target, p));
-        PacketDistributor.sendToPlayer(watcher, new Payloads.TrackData(target, true, net));
+        com.glowtrack.network.ServerNet.send(watcher, new Payloads.TrackData(target, true, net));
         watchers.computeIfAbsent(watcher.getUUID(), k -> ConcurrentHashMap.newKeySet()).add(target);
         GlowTrack.LOGGER.info("[GlowTrack] {} 开始追踪 {}（{} 点）", watcher.getName().getString(), target, net.size());
     }
