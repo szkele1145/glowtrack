@@ -223,6 +223,38 @@ public final class ClientTrackState {
         }
     }
 
+    /**
+     * 导出当前追踪轨迹为 CSV（表头 + 每点一行，与 TrackStore.exportCsv 同格式），
+     * 写入模组目录 export/ 下（与 JSON 导出同目录、同文件名规则）。
+     * @return 结果描述（成功含文件名，失败含原因）
+     */
+    public String exportSelectedCsv(String name) {
+        if (points.isEmpty()) return "无轨迹可导出";
+        try {
+            java.nio.file.Path dir = net.minecraft.client.Minecraft.getInstance()
+                    .gameDirectory.toPath().resolve("glowtrack").resolve("export");
+            java.nio.file.Files.createDirectories(dir);
+            String safe = (name == null || name.isBlank()) ? "track" : name.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+            java.nio.file.Path f = dir.resolve(safe + "_" + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".csv");
+
+            StringBuilder sb = new StringBuilder("time,x,y,z,dim,speed,yaw,pitch\n");
+            for (TrackPoint p : points) {
+                sb.append(p.timeMillis()).append(',')
+                  .append(p.x()).append(',')
+                  .append(p.y()).append(',')
+                  .append(p.z()).append(',')
+                  .append(p.dimension()).append(',')
+                  .append(p.speed()).append(',')
+                  .append(p.yaw()).append(',')
+                  .append(p.pitch()).append('\n');
+            }
+            java.nio.file.Files.writeString(f, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
+            return Text.s("glowtrack.export.csv_done", f.getFileName().toString());
+        } catch (Exception e) {
+            return "导出失败: " + e.getMessage();
+        }
+    }
+
     // ==================== 发送便捷方法 ====================
 
     public static void sendToServer(Object payload) {

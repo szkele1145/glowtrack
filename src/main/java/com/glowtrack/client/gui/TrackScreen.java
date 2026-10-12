@@ -185,7 +185,10 @@ public class TrackScreen extends Screen {
 
     private void exportTrack() {
         if (selected == null) return;
-        String msg = ClientTrackState.get().exportSelected(selected.name());
+        // Shift+点击导出 CSV，普通点击导出 JSON
+        String msg = hasShiftDown()
+                ? ClientTrackState.get().exportSelectedCsv(selected.name())
+                : ClientTrackState.get().exportSelected(selected.name());
         if (minecraft != null && minecraft.player != null)
             minecraft.player.displayClientMessage(Component.literal("[GlowTrack] " + msg), false);
     }
@@ -234,7 +237,8 @@ public class TrackScreen extends Screen {
             g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.time") + com.glowtrack.track.TrackTimes.hms(cp.timeMillis()),
                     x, yRead, 0xD29922, false);
             g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.dim") + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
-            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()),
+            String dist = " · " + com.glowtrack.client.Text.s("glowtrack.gui.readout.dist", fmtDist(totalDistance(pts)));
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()) + dist,
                     x, yRead + 24, 0x8B949E, false);
         } else {
             g.drawString(font, selected == null ? com.glowtrack.client.Text.s("glowtrack.gui.noselection") : com.glowtrack.client.Text.s("glowtrack.gui.waiting"), x, yRead, 0x6E7681, false);
@@ -267,6 +271,22 @@ public class TrackScreen extends Screen {
         long t0 = pts.get(0).timeMillis(), t1 = pts.get(pts.size() - 1).timeMillis();
         long target = t0 + (long) (ClientTrackState.get().scrubRatio() * (double) (t1 - t0));
         return com.glowtrack.track.TrackTimes.nearestByTime(pts, target);
+    }
+
+    /** 总路程（相邻点距离之和，跨维度段不计，与 PlayerTrack.totalDistance 同语义）。 */
+    private static double totalDistance(List<TrackPoint> pts) {
+        double d = 0;
+        for (int i = 1; i < pts.size(); i++) {
+            TrackPoint a = pts.get(i - 1), b = pts.get(i);
+            if (a.inDimension(b.dimension())) d += a.distanceTo(b);
+        }
+        return d;
+    }
+
+    /** 里程格式：<1000 显示 "xxx m"，≥1000 显示 "x.x km"。 */
+    private static String fmtDist(double meters) {
+        if (meters < 1000) return String.format(java.util.Locale.ROOT, "%.0f m", meters);
+        return String.format(java.util.Locale.ROOT, "%.1f km", meters / 1000.0);
     }
 
     // ---- 交互（时间轴/列表交互已由各自 widget 处理）----
