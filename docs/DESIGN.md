@@ -1,3 +1,5 @@
+> [DESIGN-NOTE] Historical design draft - class names differ from final code; source of truth is src/. Data flow and storage sections remain accurate.
+
 # GlowTrack 玩家轨迹追踪模组 · 架构设计
 
 - Minecraft **1.21.1** / NeoForge **21.1.x** / Java 21
