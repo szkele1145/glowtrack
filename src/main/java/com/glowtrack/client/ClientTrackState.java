@@ -60,6 +60,9 @@ public final class ClientTrackState {
             tracked = id;
             points.clear();
             trackedSet.add(id);
+            scrubTimeMillis = Long.MIN_VALUE;
+            scrubRatio = 1.0;
+            viewEndRatio = 1.0;
         }
         if (id.equals(tracked)) {
             for (Payloads.NetPoint np : data.points()) {
@@ -84,6 +87,9 @@ public final class ClientTrackState {
         tracked = id;
         points.clear();
         trackedSet.add(id);
+        scrubTimeMillis = Long.MIN_VALUE;
+        scrubRatio = 1.0;
+        viewEndRatio = 1.0;
     }
 
     public UUID tracked() { return tracked; }

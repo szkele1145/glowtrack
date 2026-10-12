@@ -129,10 +129,16 @@ public final class ServerTrackManager {
                     targetId, false, e.getValue()));
         }
 
-        // 周期落盘
+        // 周期落盘（异步：磁盘 IO 不阻塞主线程 tick；TrackStore 内部已锁，快照后写盘安全）
         if (++saveCooldown >= 6000) { // 约 5 分钟
             saveCooldown = 0;
-            store.saveAll();
+            java.util.List<PlayerTrack> snapshot = store.allToday();
+            Thread worker = new Thread(() -> {
+                for (PlayerTrack t : snapshot) store.save(t.player());
+                GlowTrack.LOGGER.debug("[GlowTrack] 异步落盘 {} 个玩家轨迹", snapshot.size());
+            }, "GlowTrack-Save");
+            worker.setDaemon(true);
+            worker.start();
         }
     }
 

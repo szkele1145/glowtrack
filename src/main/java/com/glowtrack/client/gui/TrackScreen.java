@@ -141,8 +141,13 @@ public class TrackScreen extends Screen {
                 com.glowtrack.client.Text.tr("glowtrack.gui.close"), b -> onClose()));
     }
 
+    private long lastPushMs = 0;
+
     private void pushSettings() {
         if (!ClientTrackState.get().isServerMode()) return;
+        long now = System.currentTimeMillis();
+        if (now - lastPushMs < 800) return;   // 滑块拖动中每帧调用，节流避免包风暴
+        lastPushMs = now;
         ClientTrackState.sendToServer(new Payloads.SyncSettings(
                 ClientSettings.get().sampleIntervalTicks, 0.0, 25.0, ClientSettings.get().retentionDays));
     }
