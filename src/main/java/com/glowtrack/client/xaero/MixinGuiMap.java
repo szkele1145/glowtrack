@@ -27,9 +27,7 @@ import java.util.List;
 @Mixin(value = GuiMap.class, remap = false)
 public abstract class MixinGuiMap {
 
-    @Inject(method = "render", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;endBatch()V",
-            ordinal = 0))
+    @Inject(method = "render", at = @At("TAIL"))
     private void glowtrack$drawTrajectory(CallbackInfo ci,
             @Local(name = "flooredCameraX") int camX,
             @Local(name = "flooredCameraZ") int camZ,

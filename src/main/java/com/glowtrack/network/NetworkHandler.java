@@ -15,13 +15,15 @@ public final class NetworkHandler {
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar("1");
 
-        // S -> C
-        registrar.playToClient(Payloads.Hello.TYPE, Payloads.Hello.CODEC,
-                ClientPayloads::handleHello);
-        registrar.playToClient(Payloads.TrackList.TYPE, Payloads.TrackList.CODEC,
-                ClientPayloads::handleTrackList);
-        registrar.playToClient(Payloads.TrackData.TYPE, Payloads.TrackData.CODEC,
-                ClientPayloads::handleTrackData);
+        // S -> C（仅客户端 dist 注册：服务端永不加载 ClientPayloads 及其 client 依赖，彻底隔离）
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            registrar.playToClient(Payloads.Hello.TYPE, Payloads.Hello.CODEC,
+                    ClientPayloads::handleHello);
+            registrar.playToClient(Payloads.TrackList.TYPE, Payloads.TrackList.CODEC,
+                    ClientPayloads::handleTrackList);
+            registrar.playToClient(Payloads.TrackData.TYPE, Payloads.TrackData.CODEC,
+                    ClientPayloads::handleTrackData);
+        }
 
         // C -> S
         registrar.playToServer(Payloads.TrackListReq.TYPE, Payloads.TrackListReq.CODEC,

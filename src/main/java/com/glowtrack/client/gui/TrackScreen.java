@@ -114,7 +114,7 @@ public class TrackScreen extends Screen {
         addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16,
                 com.glowtrack.client.Text.s("glowtrack.gui.map"),
                 () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); })
-                .enabledWhen(() -> com.glowtrack.client.XaeroDetect.anyXaero()));
+                .enabledWhen(() -> com.glowtrack.client.XaeroRuntime.anyXaero()));
 
         addRenderableWidget(FlatButton.of(x, yTele, col2, 20,
                 com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport()));
