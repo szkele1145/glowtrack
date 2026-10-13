@@ -4,6 +4,7 @@ import com.glowtrack.GlowTrack;
 import com.glowtrack.TrackConfig;
 import com.glowtrack.network.Payloads;
 import com.glowtrack.track.PlayerTrack;
+import com.glowtrack.track.ActionEvent;
 import com.glowtrack.track.Sampler;
 import com.glowtrack.track.TrackPoint;
 import com.glowtrack.track.TrackStore;
@@ -47,10 +48,13 @@ public final class ServerTrackManager {
     private static ServerTrackManager instance;
 
     private final TrackStore store;
+    private final MinecraftServer minecraftServer;
     private final Map<UUID, Sampler> samplers = new ConcurrentHashMap<>();
     /** 观察者 UUID -> 正在追踪的目标 UUID 集合 */
     private final Map<UUID, Set<UUID>> watchers = new ConcurrentHashMap<>();
     private int saveCooldown = 0;
+    /** 行为事件缓冲：playerId -> 事件列表（主线程事件写入，攒批推送后清空）。 */
+    private final java.util.Map<java.util.UUID, java.util.List<com.glowtrack.track.ActionEvent>> actionBuffer = new java.util.concurrent.ConcurrentHashMap<>();
     /** 白名单缓存：原每 tick 重建 Set + 拷贝数组，现 20 秒刷新一次（白名单基本不变）。 */
     private Set<String> whitelistCache = null;
     private long whitelistCacheAt = 0;
@@ -58,6 +62,7 @@ public final class ServerTrackManager {
     private ServerTrackManager(MinecraftServer server) {
         Path root = server.getServerDirectory().resolve("glowtrack");
         this.store = new TrackStore(root);
+        this.minecraftServer = server;
     }
 
     public static ServerTrackManager get() {
@@ -130,6 +135,15 @@ public final class ServerTrackManager {
             for (Map.Entry<UUID, List<Payloads.NetPoint>> t : e.getValue().entrySet()) {
                 com.glowtrack.network.ServerNet.send(watcher, new Payloads.TrackData(
                         t.getKey(), false, t.getValue()));
+                // 行为事件随轨迹增量一起推送（可选通道：对端没装时静默跳过）
+                var acts = drainActions(t.getKey());
+                if (!acts.isEmpty()) {
+                    var netActs = new ArrayList<com.glowtrack.network.ActionDataPackets.NetAction>();
+                    for (var ae : acts) netActs.add(new com.glowtrack.network.ActionDataPackets.NetAction(
+                            ae.t(), ae.type(), ae.target(), ae.x(), ae.y(), ae.z()));
+                    com.glowtrack.network.ServerNet.send(watcher,
+                            new com.glowtrack.network.ActionDataPackets.ActionData(t.getKey(), netActs));
+                }
             }
         }
 
@@ -230,6 +244,23 @@ public final class ServerTrackManager {
     public void removeWatcher(UUID watcher) {
         watchers.remove(watcher);
         samplers.remove(watcher);
+    }
+
+    /** 白名单内玩家判定（行为事件监听用）。 */
+    public boolean isTracked(String name) {
+        return whitelistNames(minecraftServer).contains(name);
+    }
+
+    /** 记录一条行为事件（主线程事件监听调用）。 */
+    public void recordAction(java.util.UUID id, String name, com.glowtrack.track.ActionEvent e) {
+        var list = actionBuffer.computeIfAbsent(id, k -> new ArrayList<>());
+        if (list.size() < 10000) list.add(e);
+    }
+
+    /** 取出并清空某玩家的行为事件（攒批推送用）。 */
+    public java.util.List<com.glowtrack.track.ActionEvent> drainActions(java.util.UUID id) {
+        var list = actionBuffer.remove(id);
+        return list == null ? java.util.List.of() : list;
     }
 
     /** 历史传送：把观察者送到目标玩家在某时刻的位置（含跨维度）。 */

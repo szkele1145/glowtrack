@@ -22,4 +22,9 @@ public final class ClientPayloads {
         Minecraft mc = Minecraft.getInstance();
         mc.execute(() -> ClientTrackState.get().onTrackData(msg));
     }
+
+    public static void handleActionData(ActionDataPackets.ActionData msg, IPayloadContext ctx) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> ClientTrackState.get().onActionData(msg.player(), msg.actions()));
+    }
 }

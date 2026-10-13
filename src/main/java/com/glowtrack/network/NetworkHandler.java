@@ -25,6 +25,8 @@ public final class NetworkHandler {
                 ClientPayloads::handleHello);
         registrar.playToClient(Payloads.TrackList.TYPE, Payloads.TrackList.CODEC,
                 ClientPayloads::handleTrackList);
+        registrar.playToClient(ActionDataPackets.ActionData.TYPE, ActionDataPackets.ActionData.CODEC,
+                ClientPayloads::handleActionData);
         registrar.playToClient(Payloads.TrackData.TYPE, Payloads.TrackData.CODEC,
                 ClientPayloads::handleTrackData);
 

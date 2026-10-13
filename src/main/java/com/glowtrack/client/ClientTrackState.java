@@ -93,6 +93,21 @@ public final class ClientTrackState {
         replaying = false;   // 换目标：停回放
     }
 
+    /** 行为事件（回放/实时显示用，与轨迹点独立）。 */
+    private final List<com.glowtrack.track.ActionEvent> actions = new ArrayList<>();
+
+    /** 服务端推送行为事件：追加 + 排序（与轨迹点同语义）。 */
+    public void onActionData(java.util.UUID id, List<com.glowtrack.network.ActionDataPackets.NetAction> list) {
+        for (var na : list) {
+            actions.add(new com.glowtrack.track.ActionEvent(na.t(), na.type(), id.toString(),
+                    na.x(), na.y(), na.z(), na.target()));
+        }
+        actions.sort(java.util.Comparator.comparingLong(com.glowtrack.track.ActionEvent::t));
+    }
+
+    /** 只读行为事件视图（ActionRenderer 用）。 */
+    public List<com.glowtrack.track.ActionEvent> actionsView() { return java.util.Collections.unmodifiableList(actions); }
+
     /** 本地降级模式：追加一个采样点。 */
     public void localAppend(TrackPoint p) {
         if (tracked == null) return;

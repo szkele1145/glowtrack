@@ -40,6 +40,8 @@ public final class TrackStore {
     private final Path root;
     /** uuid -> 今日轨迹 */
     private final Map<UUID, PlayerTrack> today = new ConcurrentHashMap<>();
+    /** uuid -> 待落盘的行为事件（与轨迹点流独立，save 时取出合并写入 .actions.json） */
+    private final Map<UUID, List<ActionEvent>> storedActions = new ConcurrentHashMap<>();
     private final Object lock = new Object();
 
     public TrackStore(Path root) {
@@ -88,26 +90,123 @@ public final class TrackStore {
         return ok;
     }
 
+    /** 追加一个行为事件进待落盘缓冲（内存上限裁剪，保留最新）。 */
+    public void appendAction(UUID id, ActionEvent e) {
+        List<ActionEvent> list = storedActions.computeIfAbsent(id, k -> new ArrayList<>());
+        synchronized (list) {
+            list.add(e);
+            int max = 10000;
+            if (list.size() > max) list.subList(0, list.size() - max).clear();
+        }
+    }
+
     // ==================== 持久化 ====================
 
     public Path fileFor(UUID id, String date) {
         return root.resolve(id.toString()).resolve(date + ".json");
     }
 
-    /** 将某玩家今日轨迹写盘。 */
+    /** 行为事件的独立文件（不与轨迹文件格式耦合）：{@code <uuid>/<date>.actions.json} */
+    public Path actionsFileFor(UUID id, String date) {
+        return root.resolve(id.toString()).resolve(date + ".actions.json");
+    }
+
+    /** 将某玩家今日轨迹写盘（轨迹与行为事件分别写各自的文件）。 */
     public void save(UUID id) {
         PlayerTrack t;
-        synchronized (lock) { t = today.get(id); }
-        if (t == null || t.isEmpty()) return;
-        Path f = fileFor(id, t.date());
+        List<ActionEvent> actions;
+        synchronized (lock) {
+            t = today.get(id);
+            actions = storedActions.remove(id);   // 取出即清空：下次落盘只写新增部分
+        }
+        if (t != null && !t.isEmpty()) {
+            Path f = fileFor(id, t.date());
+            try {
+                Files.createDirectories(f.getParent());
+                try (Writer w = Files.newBufferedWriter(f, StandardCharsets.UTF_8)) {
+                    GSON.toJson(toJson(t), w);
+                }
+            } catch (IOException e) {
+                GlowTrack.LOGGER.error("[GlowTrack] 保存轨迹失败 {}", f, e);
+            }
+        }
+        // 行为事件：与已有文件合并后整体重写（落盘期间新事件仍可继续 append）
+        if (actions != null && !actions.isEmpty()) {
+            String date = (t != null && !t.isEmpty()) ? t.date() : todayKey();
+            saveActions(id, date, actions);
+        }
+    }
+
+    /** 行为事件合并写盘：读旧文件（容错）+ 内存新增，按时间排序去重后整体重写。 */
+    private void saveActions(UUID id, String date, List<ActionEvent> fresh) {
+        Path f = actionsFileFor(id, date);
         try {
             Files.createDirectories(f.getParent());
+            Map<Long, ActionEvent> merged = new HashMap<>();
+            for (ActionEvent e : loadActionsFromDisk(id, date))
+                merged.put(e.t(), e);
+            for (ActionEvent e : fresh)
+                merged.put(e.t(), e);
+            List<ActionEvent> all = new ArrayList<>(merged.values());
+            all.sort(java.util.Comparator.comparingLong(ActionEvent::t));
+            JsonObject o = new JsonObject();
+            o.addProperty("version", 1);
+            o.addProperty("player", id.toString());
+            o.addProperty("date", date);
+            JsonArray arr = new JsonArray();
+            for (ActionEvent e : all) {
+                JsonObject j = new JsonObject();
+                j.addProperty("t", e.t());
+                j.addProperty("type", e.type());
+                j.addProperty("x", e.x());
+                j.addProperty("y", e.y());
+                j.addProperty("z", e.z());
+                j.addProperty("target", e.target());
+                arr.add(j);
+            }
+            o.add("actions", arr);
             try (Writer w = Files.newBufferedWriter(f, StandardCharsets.UTF_8)) {
-                GSON.toJson(toJson(t), w);
+                GSON.toJson(o, w);
             }
         } catch (IOException e) {
-            GlowTrack.LOGGER.error("[GlowTrack] 保存轨迹失败 {}", f, e);
+            GlowTrack.LOGGER.error("[GlowTrack] 保存行为事件失败 {}", f, e);
         }
+    }
+
+    /** 从磁盘读取某玩家指定日期的行为事件；文件不存在/损坏返回空列表（容错）。 */
+    private List<ActionEvent> loadActionsFromDisk(UUID id, String date) {
+        Path f = actionsFileFor(id, date);
+        if (!Files.exists(f)) return new ArrayList<>();
+        List<ActionEvent> out = new ArrayList<>();
+        try (Reader r = Files.newBufferedReader(f, StandardCharsets.UTF_8)) {
+            JsonObject obj = JsonParser.parseReader(r).getAsJsonObject();
+            if (!obj.has("actions")) return out;   // 旧格式/空文件：无 actions 键
+            for (JsonElement el : obj.getAsJsonArray("actions")) {
+                try {
+                    JsonObject e = el.getAsJsonObject();
+                    String type = e.get("type").getAsString();
+                    long ts = e.get("t").getAsLong();
+                    if (ts < 0) continue;
+                    out.add(new ActionEvent(
+                            ts, type,
+                            e.has("playerId") ? e.get("playerId").getAsString() : id.toString(),
+                            e.get("x").getAsDouble(),
+                            e.get("y").getAsDouble(),
+                            e.get("z").getAsDouble(),
+                            e.has("target") ? e.get("target").getAsString() : ""));
+                } catch (Exception ex) {
+                    GlowTrack.LOGGER.warn("[GlowTrack] 跳过损坏的行为事件: {}", ex.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            GlowTrack.LOGGER.warn("[GlowTrack] 读取行为事件失败 {}（按空处理）: {}", f, e.getMessage());
+        }
+        return out;
+    }
+
+    /** 供快照加载用：读某玩家指定日期的行为事件（公开只读）。 */
+    public List<ActionEvent> loadActions(UUID id, String date) {
+        return loadActionsFromDisk(id, date);
     }
 
     /** 保存全部。 */
@@ -285,6 +384,7 @@ public final class TrackStore {
                 try (var files = Files.list(p)) {
                     for (Path f : (Iterable<Path>) files.filter(x -> x.toString().endsWith(".json"))::iterator) {
                         String base = f.getFileName().toString().replace(".json", "");
+                        if (base.endsWith(".actions")) base = base.substring(0, base.length() - ".actions".length());
                         try {
                             if (LocalDate.parse(base).isBefore(limitDate)) {
                                 Files.deleteIfExists(f);
