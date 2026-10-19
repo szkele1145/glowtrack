@@ -251,7 +251,7 @@ public class TrackScreen extends Screen {
             TrackPoint cp = cursor(pts);
             g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.time") + com.glowtrack.track.TrackTimes.hms(cp.timeMillis()),
                     x, yRead, 0xD29922, false);
-            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.dim") + dimName(cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
+            g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.dim") + dimName(cp.dimension() == null ? "?" : cp.dimension().toString()), x, yRead + 12, 0x58A6FF, false);
             String dist = " · " + com.glowtrack.client.Text.s("glowtrack.gui.readout.dist", fmtDist(totalDistance(pts)));
             String ptsStr = " · " + com.glowtrack.client.Text.s("glowtrack.gui.readout.points", fmtPoints(pts.size()));
             g.drawString(font, com.glowtrack.client.Text.s("glowtrack.gui.readout.pos", cp.x(), cp.y(), cp.z()) + dist + ptsStr,

@@ -259,7 +259,7 @@ public final class TrackStore {
             e.addProperty("x", p.x());
             e.addProperty("y", p.y());
             e.addProperty("z", p.z());
-            e.addProperty("d", p.dimension().toString());
+            e.addProperty("d", p.dimension() == null ? "" : p.dimension().toString());
             e.addProperty("v", p.speed());
             e.addProperty("yaw", p.yaw());
             e.addProperty("pitch", p.pitch());
@@ -346,12 +346,14 @@ public final class TrackStore {
             String[] c = line.split(",");
             if (c.length < 5) continue;
             try {
+                ResourceLocation dim = ResourceLocation.tryParse(c[4].trim());
+                if (dim == null) continue;   // 与 fromJson 对齐：坏维度行直接跳过，防止 null 维度点混入
                 TrackPoint p = new TrackPoint(
                         Long.parseLong(c[0].trim()),
                         Double.parseDouble(c[1].trim()),
                         Double.parseDouble(c[2].trim()),
                         Double.parseDouble(c[3].trim()),
-                        ResourceLocation.tryParse(c[4].trim()),
+                        dim,
                         c.length > 5 ? Float.parseFloat(c[5].trim()) : 0f,
                         c.length > 6 ? Float.parseFloat(c[6].trim()) : 0f,
                         c.length > 7 ? Float.parseFloat(c[7].trim()) : 0f);

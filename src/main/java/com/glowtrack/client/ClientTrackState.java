@@ -67,8 +67,11 @@ public final class ClientTrackState {
         }
         if (id.equals(tracked)) {
             for (Payloads.NetPoint np : data.points()) {
+                ResourceLocation dim = ResourceLocation.tryParse(np.dim());
+                if (dim == null) continue;   // 坏维度点直接跳过：否则造出 dimension=null 的点，
+                                             // 后续渲染/导出时 p.dimension().toString() 抛 NPE 崩客户端
                 points.add(new TrackPoint(np.t(), np.x(), np.y(), np.z(),
-                        ResourceLocation.tryParse(np.dim()), np.v(), np.yaw(), np.pitch()));
+                        dim, np.v(), np.yaw(), np.pitch()));
             }
             points.sort(java.util.Comparator.comparingLong(TrackPoint::timeMillis));
             refreshView();
@@ -318,7 +321,7 @@ public final class ClientTrackState {
                 e.addProperty("x", p.x());
                 e.addProperty("y", p.y());
                 e.addProperty("z", p.z());
-                e.addProperty("d", p.dimension().toString());
+                e.addProperty("d", p.dimension() == null ? "" : p.dimension().toString());
                 e.addProperty("v", p.speed());
                 arr.add(e);
             }
