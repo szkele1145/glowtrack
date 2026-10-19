@@ -45,7 +45,7 @@ $w.Flush()
 $tmp = Join-Path $env:TEMP "mr_upload_$Version.bin"
 [System.IO.File]::WriteAllBytes($tmp, $ms.ToArray())
 
-$r = curl.exe -s --noproxy '*' -X POST `
+$r = curl.exe -s --noproxy '*' --ssl-no-revoke -X POST `
     -H "Authorization: $tok" -H "User-Agent: $UA" `
     -H "Content-Type: multipart/form-data; boundary=$boundary" `
     --data-binary "@$tmp" `
