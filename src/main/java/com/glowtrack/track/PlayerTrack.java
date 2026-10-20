@@ -41,11 +41,25 @@ public final class PlayerTrack {
 
     /**
      * 追加一个点。仅当时间不早于最后一个点时才加入（保证升序）。
-     * @return 是否成功加入
+     *
+     * <p>同一毫秒到达的点：<b>替换</b>最后一个点而不是丢弃——同一毫秒里的后一个点
+     * 才是玩家当时真正的位置（采样时序上更靠后），丢弃它会让轨迹停在旧位置。
+     * 时间早于最后一个点则拒绝（乱序包，直接丢弃）。</p>
+     *
+     * @return 是否成功加入（含"替换同毫秒旧点"的情况）
      */
     public boolean append(TrackPoint p) {
-        // 严格升序：同毫秒重复点也拒绝（避免零距离点污染存储与网络流）
-        if (!points.isEmpty() && p.timeMillis() <= lastTime()) return false;
+        if (points.isEmpty()) {
+            points.add(p);
+            return true;
+        }
+        long last = lastTime();
+        if (p.timeMillis() < last) return false;          // 乱序：直接丢弃
+        if (p.timeMillis() == last) {
+            // 同毫秒：位置更新，替换而非追加（避免零距离重复点污染存储与网络流）
+            points.set(points.size() - 1, p);
+            return true;
+        }
         points.add(p);
         return true;
     }
@@ -96,10 +110,12 @@ public final class PlayerTrack {
         return (t - a.timeMillis() <= b.timeMillis() - t) ? a : b;
     }
 
-    /** 该轨迹涉及的维度集合（去重）。 */
+    /** 该轨迹涉及的维度集合（去重）。null 维度不计入——它不是有效维度。 */
     public java.util.Set<ResourceLocation> dimensions() {
         java.util.Set<ResourceLocation> set = new java.util.LinkedHashSet<>();
-        for (TrackPoint p : points) set.add(p.dimension());
+        for (TrackPoint p : points) {
+            if (p.dimension() != null) set.add(p.dimension());
+        }
         return set;
     }
 

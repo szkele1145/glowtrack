@@ -380,24 +380,32 @@ public final class TrackStore {
         long cutoff = System.currentTimeMillis() - retentionDays * 24L * 3600L * 1000L;
         LocalDate limitDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(cutoff), ZONE);
         int removed = 0;
+        // 先把要处理的目录收集出来并关掉 walk 流——Windows 上开着句柄删不掉目录
+        List<Path> dirs = new ArrayList<>();
         try (var stream = Files.walk(root)) {
-            for (Path p : (Iterable<Path>) stream.filter(Files::isDirectory)::iterator) {
-                if (p.equals(root)) continue;
-                try (var files = Files.list(p)) {
-                    for (Path f : (Iterable<Path>) files.filter(x -> x.toString().endsWith(".json"))::iterator) {
-                        String base = f.getFileName().toString().replace(".json", "");
-                        if (base.endsWith(".actions")) base = base.substring(0, base.length() - ".actions".length());
-                        try {
-                            if (LocalDate.parse(base).isBefore(limitDate)) {
-                                Files.deleteIfExists(f);
-                                removed++;
-                            }
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
+            stream.filter(Files::isDirectory).forEach(dirs::add);
         } catch (IOException e) {
             GlowTrack.LOGGER.error("[GlowTrack] 清理历史轨迹失败", e);
+            return 0;
+        }
+        for (Path p : dirs) {
+            if (p.equals(root)) continue;
+            try (var files = Files.list(p)) {
+                for (Path f : (Iterable<Path>) files.filter(x -> x.toString().endsWith(".json"))::iterator) {
+                    String base = f.getFileName().toString().replace(".json", "");
+                    if (base.endsWith(".actions")) base = base.substring(0, base.length() - ".actions".length());
+                    try {
+                        if (LocalDate.parse(base).isBefore(limitDate)) {
+                            Files.deleteIfExists(f);
+                            removed++;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            } catch (IOException ignored) {}
+            // 空目录一并删掉，否则 UUID 目录会随玩家数量无限累积
+            try (var any = Files.list(p)) {
+                if (!any.findAny().isPresent()) Files.deleteIfExists(p);
+            } catch (IOException ignored) {}
         }
         return removed;
     }

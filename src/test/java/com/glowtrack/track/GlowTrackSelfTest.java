@@ -23,6 +23,9 @@ public final class GlowTrackSelfTest {
         ribbonJointsAreContinuous();
         nullDimensionDoesNotCrashGeometry();
         lineWidthSettingIsClamped();
+        sameMillisecondPointReplacesPrevious();
+        dimensionsSkipNullDimension();
+        retentionRemovesExpiredFilesAndEmptyDirs();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -42,6 +45,70 @@ public final class GlowTrackSelfTest {
         s.lineWidth = -50;
         s.clampLineWidth();
         check("线宽下限夹取到 1", s.lineWidth == 1, "w=" + s.lineWidth);
+    }
+
+    /** 同毫秒的点应替换最后一个而不是被丢弃（同毫秒的后点是更真实的位置）。 */
+    private static void sameMillisecondPointReplacesPrevious() {
+        var dim = net.minecraft.resources.ResourceLocation.parse("minecraft:overworld");
+        var t = new PlayerTrack(UUID.randomUUID(), "t", "2026-10-21");
+        boolean ok1 = t.append(new TrackPoint(1000, 0, 64, 0, dim, 0, 0, 0));
+        boolean ok2 = t.append(new TrackPoint(2000, 5, 64, 0, dim, 0, 0, 0));
+        boolean ok3 = t.append(new TrackPoint(2000, 9, 64, 0, dim, 0, 0, 0));   // 同毫秒
+        check("首点加入", ok1, "");
+        check("正常升序点加入", ok2, "");
+        check("同毫秒点返回 true（替换语义）", ok3, "ok3=" + ok3);
+        check("同毫秒点替换后仍是 2 个点", t.size() == 2, "size=" + t.size());
+        check("同毫秒点是新位置", t.last().x() == 9.0, "x=" + t.last().x());
+        boolean ok4 = t.append(new TrackPoint(1500, 0, 64, 0, dim, 0, 0, 0));   // 乱序
+        check("乱序点被拒绝", !ok4 && t.size() == 2, "ok4=" + ok4);
+    }
+
+    /** dimensions() 集合不得包含 null（坏点不应污染维度集合）。 */
+    private static void dimensionsSkipNullDimension() {
+        var dim = net.minecraft.resources.ResourceLocation.parse("minecraft:overworld");
+        var t = new PlayerTrack(UUID.randomUUID(), "t", "2026-10-21");
+        t.load(java.util.List.of(
+                new TrackPoint(1000, 0, 64, 0, dim, 0, 0, 0),
+                new TrackPoint(2000, 0, 64, 0, null, 0, 0, 0)));   // 坏点
+        var dims = t.dimensions();
+        check("null 维度不计入维度集合", dims.size() == 1 && dims.contains(dim), "dims=" + dims);
+    }
+
+    /** 保留清理：过期文件被删、目录清空后一并删除、未过期文件保留。 */
+    private static void retentionRemovesExpiredFilesAndEmptyDirs() throws Exception {
+        var root = java.nio.file.Files.createTempDirectory("gtstore");
+        try {
+            var id = UUID.randomUUID();
+            var dir = root.resolve(id.toString());
+            java.nio.file.Files.createDirectories(dir);
+            // 过期文件（2020-01-01）与未过期文件（2999-12-31）
+            java.nio.file.Files.writeString(dir.resolve("2020-01-01.json"), "{}");
+            java.nio.file.Files.writeString(dir.resolve("2020-01-01.actions.json"), "{}");
+            java.nio.file.Files.writeString(dir.resolve("2999-12-31.json"), "{}");
+            // 只含过期文件的目录（清空后应被删除）
+            var doomed = root.resolve(UUID.randomUUID().toString());
+            java.nio.file.Files.createDirectories(doomed);
+            java.nio.file.Files.writeString(doomed.resolve("2020-06-01.json"), "{}");
+            // 另一个空目录（模拟以前清理剩下的）
+            var emptyDir = root.resolve(UUID.randomUUID().toString());
+            java.nio.file.Files.createDirectories(emptyDir);
+
+            var store = new com.glowtrack.track.TrackStore(root);
+            int removed = store.enforceRetention(30);
+
+            check("过期文件被删除（3 个）", removed >= 3, "removed=" + removed);
+            check("未过期文件保留", java.nio.file.Files.exists(dir.resolve("2999-12-31.json")), "");
+            check("未过期文件所在的目录保留", java.nio.file.Files.exists(dir), "");
+            check("清空后的目录被删除", !java.nio.file.Files.exists(doomed), "");
+            check("预先存在的空目录被删除", !java.nio.file.Files.exists(emptyDir), "");
+        } finally {
+            // 递归清理临时目录
+            try (var w = java.nio.file.Files.walk(root)) {
+                w.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                    try { java.nio.file.Files.deleteIfExists(p); } catch (Exception ignored) {}
+                });
+            }
+        }
     }
 
     /**
@@ -69,8 +136,7 @@ public final class GlowTrackSelfTest {
         check("null 维度点被跳过、其余仍成段", runs.size() == 2, "runs=" + runs.size());
     }
 
-    /** 带子宽度验证：直线段的 L/R 顶点对距离 = 线宽（几何宽度真实生效，不再依赖 glLineWidth）。 */
-    private static void ribbonWidthIsRealGeometry() {
+    /** 带子宽度验证：直线段的 L/R 顶点对距离 = 线宽（几何宽度真实生效，不再依赖 glLineWidth）。 */    private static void ribbonWidthIsRealGeometry() {
         var dim = net.minecraft.resources.ResourceLocation.parse("minecraft:overworld");
         java.util.List<com.glowtrack.track.TrackPoint> pts = java.util.List.of(
                 new TrackPoint(1000, 0, 64, 0, dim, 0, 0, 0),
@@ -134,11 +200,11 @@ public final class GlowTrackSelfTest {
         check("导出不因 null 维度崩溃", json.contains("\"d\""), "json 长度=" + json.length());
     }
 
-    /** append 必须保持时间严格升序（同毫秒也拒绝）。 */
+    /** append 必须保持时间升序（同毫秒替换旧点，更早的点拒绝）。 */
     private static void trackPointAppendKeepsTimeOrder() {
         PlayerTrack t = new PlayerTrack(UUID.randomUUID(), "n", "2026-10-20");
         check("首个点可加入", t.append(pt(1000L)));
-        check("同毫秒重复点被拒", !t.append(pt(1000L)));
+        check("同毫秒重复点替换旧点（不算新点）", t.append(pt(1000L)) && t.size() == 1, "size=" + t.size());
         check("更早的点被拒", !t.append(pt(500L)));
         check("更晚的点可加入", t.append(pt(2000L)));
         check("最终点数正确", t.size() == 2, "size=" + t.size());
