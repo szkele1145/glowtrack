@@ -28,6 +28,7 @@ public final class GlowTrackSelfTest {
         retentionRemovesExpiredFilesAndEmptyDirs();
         packetCountClampBlocksOom();
         samplerDetectsSmoothTurn();
+        actionEventsAreClearedOnTargetSwitch();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -122,6 +123,38 @@ public final class GlowTrackSelfTest {
         check("超大长度被钳到上限", com.glowtrack.network.Payloads.clampCount(Integer.MAX_VALUE, max) == max, "");
         check("负长度归零", com.glowtrack.network.Payloads.clampCount(-1, max) == 0, "");
         check("上限为 0 时恒为 0", com.glowtrack.network.Payloads.clampCount(100, 0) == 0, "");
+    }
+
+    /**
+     * 换目标/停止追踪后，行为事件不能残留。
+     *
+     * <p>ActionRenderer 直接用 actionsView() 渲染，不看 tracked——
+     * 事件不清理就会在世界里留下上一个目标的"幽灵标记"。
+     * 而且事件流只进不出（不像轨迹点有服务端上限兜底），
+     * 长时间追踪会无上限增长吃满内存。</p>
+     */
+    private static void actionEventsAreClearedOnTargetSwitch() {
+        var state = com.glowtrack.client.ClientTrackState.get();
+        var id1 = UUID.randomUUID();
+        var id2 = UUID.randomUUID();
+        var net = new java.util.ArrayList<com.glowtrack.network.ActionDataPackets.NetAction>();
+        net.add(new com.glowtrack.network.ActionDataPackets.NetAction(
+                1000L, "break", "minecraft:stone", 1, 2, 3));
+        state.onActionData(id1, net);
+        check("事件已接收", state.actionsView().size() == 1, "size=" + state.actionsView().size());
+
+        // 换目标（快照）→ 旧目标的事件必须清掉
+        state.onTrackData(new com.glowtrack.network.Payloads.TrackData(
+                id2, true, java.util.List.of()));
+        check("换目标后旧事件被清空", state.actionsView().isEmpty(),
+                "size=" + state.actionsView().size());
+
+        // 再来一次，验证停止追踪也会清
+        state.onActionData(id2, net);
+        check("事件已重新接收", state.actionsView().size() == 1, "size=" + state.actionsView().size());
+        state.clearTracking();
+        check("停止追踪后事件被清空", state.actionsView().isEmpty(),
+                "size=" + state.actionsView().size());
     }
 
     /**

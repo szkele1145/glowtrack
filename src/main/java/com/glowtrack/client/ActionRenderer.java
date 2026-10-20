@@ -38,7 +38,8 @@ public final class ActionRenderer {
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return;
-        List<ActionEvent> actions = com.glowtrack.client.ClientTrackState.get().actionsView();
+        com.glowtrack.client.ClientTrackState state = com.glowtrack.client.ClientTrackState.get();
+        List<ActionEvent> actions = state.actionsView();
         if (actions.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
@@ -46,7 +47,11 @@ public final class ActionRenderer {
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         if (buffers == null) return;
 
-        com.glowtrack.client.ClientTrackState state = com.glowtrack.client.ClientTrackState.get();
+        // 只渲染当前追踪目标的事件：客户端可能同时订阅多个目标，
+        // 不按 tracked 过滤会把别人的事件也画出来
+        java.util.UUID trackedId = state.tracked();
+        String trackedStr = trackedId == null ? null : trackedId.toString();
+
         boolean replaying = state.isReplaying();
         long windowMs = replaying ? REPLAY_WINDOW_MS : LIVE_WINDOW_MS;
 
@@ -80,6 +85,8 @@ public final class ActionRenderer {
         for (int i = start; i < actions.size(); i++) {
             ActionEvent e = actions.get(i);
             if (e.t() > now) break;
+            // 过滤：只画当前追踪目标的事件（trackedStr 为 null 表示没有追踪目标）
+            if (trackedStr == null || !trackedStr.equals(e.playerId())) continue;
             float age = (now - e.t()) / (float) windowMs;   // 0..1
             float alpha = 0.85f * (1.0f - age);
             if (alpha <= 0.05f) continue;

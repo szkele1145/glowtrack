@@ -60,6 +60,7 @@ public final class ClientTrackState {
             tracked = id;
             points.clear();
             trackedSet.add(id);
+            clearActions();   // 换目标：上一个目标的事件标记不能残留
             scrubTimeMillis = Long.MIN_VALUE;
             scrubRatio = 1.0;
             viewEndRatio = 1.0;
@@ -87,6 +88,7 @@ public final class ClientTrackState {
         tracked = id;
         points.clear();
         trackedSet.add(id);
+        clearActions();   // 换目标：残留的事件标记属于上一个目标
         points.addAll(imported);
         points.sort(java.util.Comparator.comparingLong(TrackPoint::timeMillis));
         refreshView();
@@ -99,13 +101,29 @@ public final class ClientTrackState {
     /** 行为事件（回放/实时显示用，与轨迹点独立）。 */
     private final List<com.glowtrack.track.ActionEvent> actions = new ArrayList<>();
 
+    /**
+     * 行为事件条数上限。
+     * 事件流是"只进不出"的（不像轨迹点有服务端上限兜底），
+     * 长时间开着追踪会无上限增长直到吃满内存。超出后丢最旧的。
+     */
+    private static final int MAX_ACTIONS = 20000;
+
     /** 服务端推送行为事件：追加 + 排序（与轨迹点同语义）。 */
     public void onActionData(java.util.UUID id, List<com.glowtrack.network.ActionDataPackets.NetAction> list) {
         for (var na : list) {
             actions.add(new com.glowtrack.track.ActionEvent(na.t(), na.type(), id.toString(),
                     na.x(), na.y(), na.z(), na.target()));
         }
+        // 超出上限：丢最旧的（保留最近的事件）
+        if (actions.size() > MAX_ACTIONS) {
+            actions.subList(0, actions.size() - MAX_ACTIONS).clear();
+        }
         actions.sort(java.util.Comparator.comparingLong(com.glowtrack.track.ActionEvent::t));
+    }
+
+    /** 清空行为事件（换目标 / 停止追踪 / 断线时必须调用，否则残留上一个目标的事件标记）。 */
+    private void clearActions() {
+        actions.clear();
     }
 
     /** 只读行为事件视图（ActionRenderer 用）。 */
@@ -125,6 +143,7 @@ public final class ClientTrackState {
         tracked = id;
         points.clear();
         trackedSet.add(id);
+        clearActions();   // 换目标：残留的事件标记属于上一个目标
         refreshView();
         scrubTimeMillis = Long.MIN_VALUE;
         scrubRatio = 1.0;
@@ -281,6 +300,7 @@ public final class ClientTrackState {
         tracked = null;
         points.clear();
         refreshView();
+        clearActions();   // 停止追踪：事件标记不能残留（否则 ActionRenderer 继续画上一个目标的事件）
         // 复位游标与视图：否则下次追踪会带着上一次的游标位置/缩放，
         // 表现为"刚开追踪就停在半路"或"时间轴窗口莫名其妙"
         scrubTimeMillis = Long.MIN_VALUE;
@@ -298,6 +318,7 @@ public final class ClientTrackState {
         points.clear();
         refreshView();
         trackedSet.clear();
+        clearActions();   // 断线：上个服务器的行为事件不能带到下个连接
         scrubRatio = 1.0;
         viewEndRatio = 1.0;
         viewSpanRatio = 0.15;
@@ -356,11 +377,14 @@ public final class ClientTrackState {
 
             StringBuilder sb = new StringBuilder("time,x,y,z,dim,speed,yaw,pitch\n");
             for (TrackPoint p : points) {
+                // 维度为 null 时写空串——直接 append(null) 会写出字面量 "null"，
+                // 导入时被当成维度名解析失败
+                String dimStr = p.dimension() == null ? "" : p.dimension().toString();
                 sb.append(p.timeMillis()).append(',')
                   .append(p.x()).append(',')
                   .append(p.y()).append(',')
                   .append(p.z()).append(',')
-                  .append(p.dimension()).append(',')
+                  .append(dimStr).append(',')
                   .append(p.speed()).append(',')
                   .append(p.yaw()).append(',')
                   .append(p.pitch()).append('\n');
