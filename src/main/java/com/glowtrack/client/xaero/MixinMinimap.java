@@ -75,7 +75,10 @@ public abstract class MixinMinimap {
 
             PoseStack pose = new PoseStack();
             MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-            var buf = buffers.getBuffer(RenderType.debugLineStrip(2.0f));
+            // 小地图轨迹线：三角带（真实厚度）——glLineWidth 在现代驱动上被钳成 1px
+            var buf = buffers.getBuffer(com.glowtrack.client.render.TrackRibbonTypes.RIBBON);
+            // 用户设置的世界线宽按比例映射到地图像素（最低 1.5px，保证远缩放下仍可见）
+            float lineWidth = Math.max(1.5f, ClientSettings.get().lineWidth * 0.6f);
 
             boolean drewAny = false;
             int total = pts.size();
@@ -89,12 +92,21 @@ public abstract class MixinMinimap {
                 float ay = (float) (cy + (a.z() - camZ) * pxPerBlock);
                 float bx = (float) (cx + (b.x() - camX) * pxPerBlock);
                 float by = (float) (cy + (b.z() - camZ) * pxPerBlock);
-                // 粗剔除：两点都在半径 2 倍外则跳过
+                // 粗剔除：两点都在半径 2 去外则跳过
                 if ((Math.abs(ax - cx) > radius * 2 && Math.abs(bx - cx) > radius * 2)
                         || (Math.abs(ay - cy) > radius * 2 && Math.abs(by - cy) > radius * 2)) continue;
                 float[] c = com.glowtrack.client.render.TrackGeometry.hsvToRgb(i / (float) total, 0.9f, 0.65f);
-                buf.addVertex(pose.last().pose(), ax, ay, 0f).setColor(c[0], c[1], c[2], 1f);
-                buf.addVertex(pose.last().pose(), bx, by, 0f).setColor(c[0], c[1], c[2], 1f);
+                // 段法线（屏幕平面内垂直于线段）
+                double ddx = bx - ax, ddy = by - ay;
+                double len = Math.sqrt(ddx * ddx + ddy * ddy);
+                if (len < 1e-9) continue;
+                double nx = -ddy / len, ny = ddx / len;
+                float half = lineWidth * 0.5f;
+                var mat = pose.last().pose();
+                buf.addVertex(mat, ax + (float) (nx * half), ay + (float) (ny * half), 0f).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, ax - (float) (nx * half), ay - (float) (ny * half), 0f).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, bx - (float) (nx * half), by - (float) (ny * half), 0f).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, bx + (float) (nx * half), by + (float) (ny * half), 0f).setColor(c[0], c[1], c[2], 1f);
                 drewAny = true;
             }
             if (drewAny) buffers.endBatch();

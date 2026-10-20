@@ -22,6 +22,7 @@ public final class GlowTrackSelfTest {
         ribbonWidthIsRealGeometry();
         ribbonJointsAreContinuous();
         nullDimensionDoesNotCrashGeometry();
+        lineWidthSettingIsClamped();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -29,6 +30,18 @@ public final class GlowTrackSelfTest {
         if (failed > 0) {
             System.exit(1);
         }
+    }
+
+    /** 线宽设置必须夹在 1..12（设置文件被手改过也不能越界渲染）。 */
+    private static void lineWidthSettingIsClamped() {
+        var s = new com.glowtrack.client.ClientSettings();
+        check("线宽默认 5 格", s.lineWidth == 5, "w=" + s.lineWidth);
+        s.lineWidth = 999;
+        s.clampLineWidth();
+        check("线宽上限夹取到 12", s.lineWidth == 12, "w=" + s.lineWidth);
+        s.lineWidth = -50;
+        s.clampLineWidth();
+        check("线宽下限夹取到 1", s.lineWidth == 1, "w=" + s.lineWidth);
     }
 
     /**

@@ -134,14 +134,26 @@ public class TrackScreen extends Screen {
         replayBtn.enabledWhen(() -> !ClientTrackState.get().points().isEmpty());
         addRenderableWidget(replayBtn);
 
-        addRenderableWidget(new FlatSlider(x, ySlider, col2, 16, com.glowtrack.client.Text.s("glowtrack.gui.timepoint"),
+        // 三个滑块并排（时间点间隔 | 保留天数 | 线宽），各占 1/3 宽度
+        addRenderableWidget(new FlatSlider(x, ySlider, col3, 16, com.glowtrack.client.Text.s("glowtrack.gui.timepoint"),
                 () -> (ClientSettings.get().timePointSeconds - 5) / 295.0,
                 v -> { ClientSettings.get().timePointSeconds = (int) Math.round(5 + v * 295); ClientSettings.get().save(); },
                 () -> com.glowtrack.client.Text.s("glowtrack.gui.seconds", ClientSettings.get().timePointSeconds)));
-        addRenderableWidget(new FlatSlider(x + col2 + 6, ySlider, col2, 16, com.glowtrack.client.Text.s("glowtrack.gui.retention"),
+        addRenderableWidget(new FlatSlider(x + col3 + 6, ySlider, col3, 16, com.glowtrack.client.Text.s("glowtrack.gui.retention"),
                 () -> (ClientSettings.get().retentionDays - 1) / 29.0,
                 v -> { ClientSettings.get().retentionDays = (int) Math.round(1 + v * 29); ClientSettings.get().save(); pushSettings(); },
                 () -> com.glowtrack.client.Text.s("glowtrack.gui.days", ClientSettings.get().retentionDays)));
+
+        // 线宽滑块（1~12 格）：真实几何宽度，立即生效
+        addRenderableWidget(new FlatSlider(x + 2 * (col3 + 6), ySlider, col3, 16, com.glowtrack.client.Text.s("glowtrack.gui.linewidth"),
+                () -> (ClientSettings.get().lineWidth - ClientSettings.LINE_WIDTH_MIN)
+                        / (double) (ClientSettings.LINE_WIDTH_MAX - ClientSettings.LINE_WIDTH_MIN),
+                v -> {
+                    ClientSettings.get().lineWidth = (int) Math.round(ClientSettings.LINE_WIDTH_MIN
+                            + v * (ClientSettings.LINE_WIDTH_MAX - ClientSettings.LINE_WIDTH_MIN));
+                    ClientSettings.get().save();
+                },
+                () -> com.glowtrack.client.Text.s("glowtrack.gui.blocks", ClientSettings.get().lineWidth)));
 
         // 底部 footer
         int yFoot = height - 26;

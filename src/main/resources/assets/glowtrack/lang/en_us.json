@@ -31,6 +31,8 @@
     "glowtrack.gui.retention": "Retention",
     "glowtrack.gui.seconds": "%ss",
     "glowtrack.gui.days": "%sd",
+    "glowtrack.gui.linewidth": "Line Width",
+    "glowtrack.gui.blocks": "%s blocks",
     "glowtrack.gui.readout.time": "Time ",
     "glowtrack.gui.readout.dim": "Dim ",
     "glowtrack.gui.readout.pos": "Pos %.1f  %.1f  %.1f",

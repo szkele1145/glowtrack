@@ -31,6 +31,8 @@
     "glowtrack.gui.retention": "保留",
     "glowtrack.gui.seconds": "%ss",
     "glowtrack.gui.days": "%s天",
+    "glowtrack.gui.linewidth": "线宽",
+    "glowtrack.gui.blocks": "%s格",
     "glowtrack.gui.readout.time": "时刻 ",
     "glowtrack.gui.readout.dim": "维度 ",
     "glowtrack.gui.readout.pos": "坐标 %.1f  %.1f  %.1f",

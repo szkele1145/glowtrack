@@ -31,6 +31,23 @@ public final class ClientSettings {
     public int sampleIntervalTicks = 20;
     public int retentionDays = 7;
 
+    /**
+     * 追踪线宽度（世界格），范围 1~12。
+     *
+     * <p>线宽是真实几何宽度（三角带按法线向两侧偏移），不是 glLineWidth——
+     * 后者在现代驱动上被钳到 1~2 像素，调了也没用。</p>
+     */
+    public int lineWidth = 5;
+
+    /** 线宽下限/上限（GUI 滑块与设置加载时统一夹取）。 */
+    public static final int LINE_WIDTH_MIN = 1;
+    public static final int LINE_WIDTH_MAX = 12;
+
+    /** 夹取线宽到合法范围（设置文件被手改过也不会越界）。 */
+    public void clampLineWidth() {
+        this.lineWidth = Math.max(LINE_WIDTH_MIN, Math.min(LINE_WIDTH_MAX, this.lineWidth));
+    }
+
     /** 时间点间隔（秒），最低 5 秒。 */
     public int timePointSeconds = 30;
     /** 融合阈值：某区域内点数超过此值即融合成范围标签。 */
@@ -52,7 +69,10 @@ public final class ClientSettings {
             if (Files.exists(f)) {
                 String json = Files.readString(f, StandardCharsets.UTF_8);
                 ClientSettings s = GSON.fromJson(json, ClientSettings.class);
-                if (s != null) return s;
+                if (s != null) {
+                    s.clampLineWidth();   // 老配置没这个字段时用默认值，手改过的值也夹到合法区间
+                    return s;
+                }
             }
         } catch (Exception e) {
             GlowTrack.LOGGER.warn("[GlowTrack] 读取客户端设置失败: {}", e.getMessage());

@@ -59,14 +59,28 @@ public abstract class MixinGuiMap {
 
             Minecraft mc = Minecraft.getInstance();
             MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-            var buf = buffers.getBuffer(RenderType.debugLineStrip(3.0f));
+            // 地图上的轨迹线：用三角带（真实厚度）——glLineWidth 在现代驱动上被钳成 1px
+            var buf = buffers.getBuffer(com.glowtrack.client.render.TrackRibbonTypes.RIBBON);
             int total = pts.size();
+            // 每段折线按段长生成带子（法线两侧偏移），用用户设置的世界线宽换算地图像素宽
+            float lineWidth = Math.max(2f, ClientSettings.get().lineWidth * 2f);
             for (int i = 1; i < total; i++) {
                 TrackPoint a = pts.get(i - 1), b = pts.get(i);
                 if (!a.inDimension(b.dimension())) continue;
                 float[] c = com.glowtrack.client.render.TrackGeometry.hsvToRgb(i / (float) total, 0.9f, 0.65f);
-                buf.addVertex(pose.last().pose(), (float) (a.x() - camX), 0f, (float) (a.z() - camZ)).setColor(c[0], c[1], c[2], 1f);
-                buf.addVertex(pose.last().pose(), (float) (b.x() - camX), 0f, (float) (b.z() - camZ)).setColor(c[0], c[1], c[2], 1f);
+                // 段方向与法线（地图画在 y=0 平面）
+                double ax = b.x() - a.x(), az = b.z() - a.z();
+                double len = Math.sqrt(ax * ax + az * az);
+                if (len < 1e-9) continue;
+                double nx = -az / len, nz = ax / len;
+                float half = lineWidth * 0.5f;
+                float x0 = (float) (a.x() - camX), z0 = (float) (a.z() - camZ);
+                float x1 = (float) (b.x() - camX), z1 = (float) (b.z() - camZ);
+                var mat = pose.last().pose();
+                buf.addVertex(mat, x0 + (float) (nx * half), 0f, z0 + (float) (nz * half)).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, x0 - (float) (nx * half), 0f, z0 - (float) (nz * half)).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, x1 - (float) (nx * half), 0f, z1 - (float) (nz * half)).setColor(c[0], c[1], c[2], 1f);
+                buf.addVertex(mat, x1 + (float) (nx * half), 0f, z1 + (float) (nz * half)).setColor(c[0], c[1], c[2], 1f);
             }
             buffers.endBatch();
         } catch (Throwable ignored) {

@@ -33,11 +33,16 @@ import java.util.List;
 public final class TrackRenderer {
     private TrackRenderer() {}
 
-    // 三角带实际半宽（世界格）。debugLineStrip 的 glLineWidth 在现代驱动上被钳到 1-2px，
-    // 想让"线粗"真的生效必须用几何宽度——这里按选品要求的 5.0 格给主线，光晕层 2.2 倍。
-    private static final float RIBBON_HALF = 2.5f;
+    // 线宽来自 ClientSettings.lineWidth（1~12 格，GUI 滑块可调）。
+    // 光晕层固定 2.2 倍于主线；注意这是真实几何宽度，不是 glLineWidth——
+    // 后者在现代驱动上被钳到 1~2 像素，调了也没用。
     private static final double FLAT_OFFSET = 5.0;      // 2D 模式：观察者高度下方 5 格
     private static final double CLUSTER_RADIUS = 24.0;  // 时间点融合空间半径
+
+    /** 主线半宽（世界格）= 用户设置 / 2。渲染线程每次进入取最新值。 */
+    private static float mainHalfWidth() {
+        return ClientSettings.get().lineWidth * 0.5f;
+    }
 
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
@@ -78,12 +83,13 @@ public final class TrackRenderer {
         RenderSystem.depthMask(false);
 
         // 发光层（更宽、加色混合——混合状态由 RIBBON_GLOW 的 transparency shard 自己管）
-        if (s.mode3d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f * 2.2f, 0.26f, true, now, true, 0);
-        if (s.mode2d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f * 2.2f, 0.26f, true, now, false, flatY);
+        float mainW = mainHalfWidth() * 2f;
+        if (s.mode3d) drawLine(pose, buffers, points, runs, mainW * 2.2f, 0.26f, true, now, true, 0);
+        if (s.mode2d) drawLine(pose, buffers, points, runs, mainW * 2.2f, 0.26f, true, now, false, flatY);
 
         // 主线层（含流动脉冲）
-        if (s.mode3d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f, 1.0f, false, now, true, 0);
-        if (s.mode2d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f, 1.0f, false, now, false, flatY);
+        if (s.mode3d) drawLine(pose, buffers, points, runs, mainW, 1.0f, false, now, true, 0);
+        if (s.mode2d) drawLine(pose, buffers, points, runs, mainW, 1.0f, false, now, false, flatY);
 
         // 恢复深度，再画时间标签（避免与线条 buffer 混淆）
         RenderSystem.depthMask(true);
