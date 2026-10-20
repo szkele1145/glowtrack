@@ -66,8 +66,6 @@ public class FlatButton extends Button {
         if (disabled) {
             bg = BG_DISABLED; border = BORDER_BASE; text = TXT_DISABLED;
         } else if (hovered) {
-            bg = BG_DISABLED; border = BORDER_BASE; text = TXT_DISABLED;
-        } else if (hovered) {
             bg = primary ? BG_PRIMARY_H : BG_HOVER;
             border = BORDER_HOVER; text = TXT_HOVER;
         } else {

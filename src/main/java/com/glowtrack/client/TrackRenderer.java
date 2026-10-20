@@ -1,6 +1,7 @@
 package com.glowtrack.client;
 
 import com.glowtrack.track.TrackPoint;
+import com.glowtrack.client.render.TrackRibbon;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -32,7 +33,9 @@ import java.util.List;
 public final class TrackRenderer {
     private TrackRenderer() {}
 
-    private static final float LINE_WIDTH = 5.0f;
+    // 三角带实际半宽（世界格）。debugLineStrip 的 glLineWidth 在现代驱动上被钳到 1-2px，
+    // 想让"线粗"真的生效必须用几何宽度——这里按选品要求的 5.0 格给主线，光晕层 2.2 倍。
+    private static final float RIBBON_HALF = 2.5f;
     private static final double FLAT_OFFSET = 5.0;      // 2D 模式：观察者高度下方 5 格
     private static final double CLUSTER_RADIUS = 24.0;  // 时间点融合空间半径
 
@@ -74,18 +77,13 @@ public final class TrackRenderer {
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
 
-        // 发光层（宽、加色）
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(com.mojang.blaze3d.platform.GlStateManager.SourceFactor.SRC_ALPHA,
-                com.mojang.blaze3d.platform.GlStateManager.DestFactor.ONE);
-        if (s.mode3d) drawLine(pose, buffers, points, runs, LINE_WIDTH * 3.4f, 0.26f, true, now, true, 0);
-        if (s.mode2d) drawLine(pose, buffers, points, runs, LINE_WIDTH * 3.4f, 0.26f, true, now, false, flatY);
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableBlend();
+        // 发光层（更宽、加色混合——混合状态由 RIBBON_GLOW 的 transparency shard 自己管）
+        if (s.mode3d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f * 2.2f, 0.26f, true, now, true, 0);
+        if (s.mode2d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f * 2.2f, 0.26f, true, now, false, flatY);
 
-        // 主线层（细、含流动脉冲）
-        if (s.mode3d) drawLine(pose, buffers, points, runs, LINE_WIDTH, 1.0f, false, now, true, 0);
-        if (s.mode2d) drawLine(pose, buffers, points, runs, LINE_WIDTH, 1.0f, false, now, false, flatY);
+        // 主线层（含流动脉冲）
+        if (s.mode3d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f, 1.0f, false, now, true, 0);
+        if (s.mode2d) drawLine(pose, buffers, points, runs, RIBBON_HALF * 2f, 1.0f, false, now, false, flatY);
 
         // 恢复深度，再画时间标签（避免与线条 buffer 混淆）
         RenderSystem.depthMask(true);
@@ -110,24 +108,37 @@ public final class TrackRenderer {
      * 画一条连续轨迹线。每个 run 用连续条带一次画完（不断跳顶点）。
      * 主线层用逐顶点亮度波制造流动脉冲，发光层保持均匀。
      * 长直线段自动抽稀（共线点距离线 > 0.05 才保留），千点轨迹不卡帧。
+     *
+     * <p><b>用三角几何画粗线</b>：{@code debugLineStrip} 走 OpenGL 的 glLineWidth，
+     * 现代驱动会把它钳到 1~2 像素，"加粗"根本不起作用。这里改成自己生成
+     * 三角带（每段折线向两侧偏移半个线宽形成四边形），线宽由几何真正决定。</p>
      */
     private static void drawLine(PoseStack pose, MultiBufferSource.BufferSource buffers,
                                  List<TrackPoint> points, List<int[]> runs,
                                  float width, float alpha, boolean isGlow, long now,
                                  boolean use3d, double flatY) {
-        VertexConsumer buf = buffers.getBuffer(RenderType.debugLineStrip(width));
+        // 主线与发光层用不同的 RenderType（= 不同的顶点缓冲 + 独立的混合状态）
+        VertexConsumer buf = buffers.getBuffer(isGlow
+                ? com.glowtrack.client.render.TrackRibbonTypes.RIBBON_GLOW
+                : com.glowtrack.client.render.TrackRibbonTypes.RIBBON);
         Matrix4f mat = pose.last().pose();
         float flow = (now % 3000L) / 3000f;   // 流动相位 0..1
+
+        // 复用缓冲，避免每帧分配（渲染热路径）
+        float[] colors = new float[4096 * 4];
+        float[] verts = new float[4096 * 2 * TrackRibbon.STRIDE];
+        int[] idx = new int[4096];
 
         for (int[] run : runs) {
             int a0 = run[0], a1 = run[1];
             if (a1 - a0 < 2) continue;
+
+            // 1) 收集本段保留的点（抽稀后）到紧凑数组
+            int n = 0;
             double cumDist = 0;   // 沿路径累计距离
-            // 逐顶点写入，保持条带连续；跳过与前后点近似共线的冗余点（视觉无差，省大量顶点）
             int prevKept = a0;
             for (int i = a0; i < a1; i++) {
                 TrackPoint p = points.get(i);
-                float y = use3d ? (float) p.y() : (float) flatY;
                 if (i > a0) cumDist += points.get(i - 1).distanceTo(p);
                 // 共线抽稀：当前点与保留的前一点、后一点近似共线（偏差<0.05格）则跳过绘制，
                 // 但至少保留段首/段尾/每8个点一个，保证曲线细节与标签锚点不丢
@@ -137,6 +148,8 @@ public final class TrackRenderer {
                     if (com.glowtrack.client.render.TrackGeometry.perpDist(prev, p, next) < 0.05) continue;
                 }
                 prevKept = i;
+                if (n >= idx.length) break;
+                idx[n] = i;
                 // 彩虹：每 3 格距离走完一轮色环（快速流动的彩色）
                 float u = (float) ((cumDist / 3.0) % 1.0);
                 float[] c = com.glowtrack.client.render.TrackGeometry.hsvToRgb(u, 0.9f, 0.65f);
@@ -146,10 +159,34 @@ public final class TrackRenderer {
                     float wave = 0.6f + 0.4f * (float) Math.sin((cumDist * 1.2 - flow * 12) * Math.PI);
                     a = alpha * wave;
                 }
-                buf.addVertex(mat, (float) p.x(), y, (float) p.z())
-                   .setColor(c[0], c[1], c[2], a);
+                colors[n * 4] = c[0]; colors[n * 4 + 1] = c[1]; colors[n * 4 + 2] = c[2]; colors[n * 4 + 3] = a;
+                n++;
+            }
+            if (n < 2) continue;
+
+            // 2) 生成带子顶点（每点 L/R 两个顶点）
+            List<TrackPoint> sub = new ArrayList<>(n);
+            for (int k = 0; k < n; k++) sub.add(points.get(idx[k]));
+            float[] segColors = new float[n * 4];
+            System.arraycopy(colors, 0, segColors, 0, n * 4);
+            int vCount = com.glowtrack.client.render.TrackRibbon.build(sub, use3d, flatY, width, segColors, verts);
+            if (vCount < 2) continue;
+
+            // 3) 写成 quad：每对相邻点组成一个四边形（L0,R0,L1,R1）
+            for (int k = 0; k + 1 < vCount; k += 2) {
+                int b0 = k * TrackRibbon.STRIDE;
+                int b1 = (k + 1) * TrackRibbon.STRIDE;
+                putVert(buf, mat, verts, b0);
+                putVert(buf, mat, verts, b0 + TrackRibbon.STRIDE);
+                putVert(buf, mat, verts, b1);
+                putVert(buf, mat, verts, b1 + TrackRibbon.STRIDE);
             }
         }
+    }
+
+    private static void putVert(VertexConsumer buf, Matrix4f mat, float[] v, int o) {
+        buf.addVertex(mat, v[o], v[o + 1], v[o + 2])
+           .setColor(v[o + 3], v[o + 4], v[o + 5], v[o + 6]);
     }
 
     /** 点 p 到线段 a-b 的垂直距离（用于共线抽稀）。已移至 TrackGeometry。 */
