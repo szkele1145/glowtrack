@@ -21,6 +21,7 @@ public final class GlowTrackSelfTest {
         samplerRecordsOnDimensionChange();
         ribbonWidthIsRealGeometry();
         ribbonJointsAreContinuous();
+        nullDimensionDoesNotCrashGeometry();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -28,6 +29,31 @@ public final class GlowTrackSelfTest {
         if (failed > 0) {
             System.exit(1);
         }
+    }
+
+    /**
+     * null 维度的点不能让几何/时间轴崩掉。
+     * inDimension 曾直接 dimension.equals(dim)——dimension 为 null 时 NPE，
+     * 而时间轴的维度切换标记会对相邻两点反复调用它。
+     */
+    private static void nullDimensionDoesNotCrashGeometry() {
+        var dim = net.minecraft.resources.ResourceLocation.parse("minecraft:overworld");
+        java.util.List<com.glowtrack.track.TrackPoint> pts = java.util.List.of(
+                new TrackPoint(1000, 0, 64, 0, dim, 0, 0, 0),
+                new TrackPoint(2000, 0, 64, 0, null, 0, 0, 0),      // 坏点：维度为 null
+                new TrackPoint(3000, 0, 64, 0, dim, 0, 0, 0));
+        // inDimension 不得抛异常
+        boolean ok = true;
+        try {
+            pts.get(1).inDimension(dim);
+            pts.get(0).inDimension(null);
+        } catch (NullPointerException e) {
+            ok = false;
+        }
+        check("null 维度的 inDimension 不抛 NPE", ok, "");
+        // contiguousRuns 不得因坏点崩掉
+        java.util.List<int[]> runs = com.glowtrack.client.render.TrackGeometry.contiguousRuns(pts, dim);
+        check("null 维度点被跳过、其余仍成段", runs.size() == 2, "runs=" + runs.size());
     }
 
     /** 带子宽度验证：直线段的 L/R 顶点对距离 = 线宽（几何宽度真实生效，不再依赖 glLineWidth）。 */

@@ -34,8 +34,14 @@ public record TrackPoint(
         return key.location();
     }
 
-    /** 判断本点是否属于给定维度。 */
+    /**
+     * 判断本点是否属于给定维度。
+     *
+     * <p>维度为 null（坏数据）时返回 false 而不是抛 NPE：时间轴的维度切换标记
+     * 会对相邻两点反复调用本方法，一个坏点就足以让整个 GUI 渲染崩掉。</p>
+     */
     public boolean inDimension(ResourceLocation dim) {
+        if (dimension == null || dim == null) return false;
         return dimension.equals(dim);
     }
 

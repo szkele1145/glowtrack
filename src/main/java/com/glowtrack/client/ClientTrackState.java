@@ -280,6 +280,13 @@ public final class ClientTrackState {
         if (tracked != null) trackedSet.remove(tracked);
         tracked = null;
         points.clear();
+        refreshView();
+        // 复位游标与视图：否则下次追踪会带着上一次的游标位置/缩放，
+        // 表现为"刚开追踪就停在半路"或"时间轴窗口莫名其妙"
+        scrubTimeMillis = Long.MIN_VALUE;
+        scrubRatio = 1.0;
+        viewEndRatio = 1.0;
+        viewSpanRatio = 0.15;
         replaying = false;   // 数据清空，停回放
     }
 
