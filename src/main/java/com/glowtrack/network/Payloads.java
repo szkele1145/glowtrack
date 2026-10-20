@@ -32,6 +32,21 @@ public final class Payloads {
         return ResourceLocation.fromNamespaceAndPath(GlowTrack.MOD_ID, path);
     }
 
+    /**
+     * 反序列化列表长度钳制。
+     *
+     * <p>长度字段是客户端/网络可随意填的 varint；若直接 {@code new ArrayList<>(n)}，
+     * 一个 {@code n=0x7FFFFFFF} 的恶意包就能让解码端分配 17GB 的引用数组
+     * （OOM 崩服/崩端）——根本不需要包体里真有那么多数据。</p>
+     *
+     * <p>钳制到 max 后，即使攻击者声称 n 很大，也只会分配 max 大小的列表；
+     * 循环在 buf 真实数据耗尽时自然抛 DecoderException 断连。</p>
+     */
+    public static int clampCount(int n, int max) {
+        if (n < 0) return 0;
+        return Math.min(n, max);
+    }
+
     /** 手写 UUID 编解码（ByteBufCodecs 无 UUID 常量）。 */
     private static final StreamCodec<FriendlyByteBuf, UUID> UUID_CODEC = new StreamCodec<>() {
         @Override public UUID decode(FriendlyByteBuf buf) { return buf.readUUID(); }
@@ -56,7 +71,7 @@ public final class Payloads {
         public static final CustomPacketPayload.Type<TrackList> TYPE = new CustomPacketPayload.Type<>(TRACK_LIST_ID);
         public static final StreamCodec<FriendlyByteBuf, TrackList> CODEC = new StreamCodec<>() {
             @Override public TrackList decode(FriendlyByteBuf buf) {
-                int n = buf.readVarInt();
+                int n = clampCount(buf.readVarInt(), 4096);
                 List<PlayerEntry> list = new ArrayList<>(n);
                 for (int i = 0; i < n; i++)
                     list.add(new PlayerEntry(buf.readUUID(), buf.readUtf(32767), buf.readBoolean()));
@@ -83,7 +98,7 @@ public final class Payloads {
             @Override public TrackData decode(FriendlyByteBuf buf) {
                 UUID id = buf.readUUID();
                 boolean snap = buf.readBoolean();
-                int n = buf.readVarInt();
+                int n = clampCount(buf.readVarInt(), 65536);
                 List<NetPoint> list = new ArrayList<>(n);
                 for (int i = 0; i < n; i++)
                     list.add(new NetPoint(buf.readVarLong(), buf.readDouble(), buf.readDouble(),

@@ -51,4 +51,20 @@ public final class Permissions {
             return false;
         }
     }
+
+    /**
+     * 修改全局配置的权限判定（改采样间隔 / 保留天数）。
+     *
+     * <p><b>刻意比 {@link #canUse} 严</b>：{@code canUse} 的语义是"能打开追踪
+     * 界面看别人的轨迹"，设计上是允许通过 LuckPerms 授权给非 OP 玩家的；
+     * 而采样间隔与保留天数是<b>影响全服所有玩家</b>的设置——被授权的普通
+     * 玩家若能改，把 retentionDays 改成 1 就等于清空所有人的历史轨迹。</p>
+     *
+     * <p>因此这里只认 OP 等级（默认要求 2 级），不查 LuckPerms 节点。</p>
+     */
+    public static boolean canModifyGlobalSettings(ServerPlayer player) {
+        if (player == null) return false;
+        CommandSourceStack src = player.createCommandSourceStack();
+        return src.hasPermission(TrackConfig.SETTINGS_OP_LEVEL.get());
+    }
 }

@@ -46,16 +46,18 @@ public final class ServerPayloads {
     public static void handleSyncSettings(Payloads.SyncSettings msg, IPayloadContext ctx) {
         ServerPlayer player = sender(ctx);
         if (player == null) return;
-        if (!Permissions.canUse(player)) { deny(ctx); return; }
-        // 只同步 GUI 可控的两项：采样间隔、保留天数。
-        // minMoveDistance / turnAngle 由服务端配置文件决定，不被客户端覆盖。
+        // 注意：这里查的是 canModifyGlobalSettings 而不是 canUse。
+        // 采样间隔 / 保留天数影响全服所有玩家，若沿用 canUse，一个被
+        // LuckPerms 授予 glowtrack.gui 的普通玩家就能改全服保留天数
+        // （改成 1 = 清空所有人的历史轨迹）。
+        if (!Permissions.canModifyGlobalSettings(player)) { deny(ctx); return; }
         // 服务端侧钳制范围（与配置 spec 一致），恶意客户端发任意值也不会污染配置：
         int interval = Math.max(1, Math.min(12000, msg.sampleIntervalTicks()));
         int retention = Math.max(1, Math.min(3650, msg.retentionDays()));
         TrackConfig.SAMPLE_INTERVAL_TICKS.set(interval);
         TrackConfig.RETENTION_DAYS.set(retention);
         GlowTrack.LOGGER.info("[GlowTrack] {} 更新采样设置 interval={} retention={}",
-                player.getName().getString(), msg.sampleIntervalTicks(), msg.retentionDays());
+                player.getName().getString(), interval, retention);
     }
 
     public static void handleTeleportTo(Payloads.TeleportTo msg, IPayloadContext ctx) {

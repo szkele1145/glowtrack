@@ -26,6 +26,7 @@ public final class GlowTrackSelfTest {
         sameMillisecondPointReplacesPrevious();
         dimensionsSkipNullDimension();
         retentionRemovesExpiredFilesAndEmptyDirs();
+        packetCountClampBlocksOom();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -75,8 +76,7 @@ public final class GlowTrackSelfTest {
     }
 
     /** 保留清理：过期文件被删、目录清空后一并删除、未过期文件保留。 */
-    private static void retentionRemovesExpiredFilesAndEmptyDirs() throws Exception {
-        var root = java.nio.file.Files.createTempDirectory("gtstore");
+    private static void retentionRemovesExpiredFilesAndEmptyDirs() throws Exception {        var root = java.nio.file.Files.createTempDirectory("gtstore");
         try {
             var id = UUID.randomUUID();
             var dir = root.resolve(id.toString());
@@ -109,6 +109,18 @@ public final class GlowTrackSelfTest {
                 });
             }
         }
+    }
+
+    /**
+     * 网络包列表长度必须钳制：恶意客户端填一个巨大的 varint 长度，
+     * 若直接 new ArrayList<>(n) 会分配巨量内存（OOM）。
+     */
+    private static void packetCountClampBlocksOom() {
+        int max = 4096;
+        check("正常长度原样返回", com.glowtrack.network.Payloads.clampCount(10, max) == 10, "");
+        check("超大长度被钳到上限", com.glowtrack.network.Payloads.clampCount(Integer.MAX_VALUE, max) == max, "");
+        check("负长度归零", com.glowtrack.network.Payloads.clampCount(-1, max) == 0, "");
+        check("上限为 0 时恒为 0", com.glowtrack.network.Payloads.clampCount(100, 0) == 0, "");
     }
 
     /**

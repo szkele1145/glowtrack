@@ -33,7 +33,9 @@ public final class ActionDataPackets {
             @Override
             public ActionData decode(FriendlyByteBuf buf) {
                 UUID player = buf.readUUID();
-                int n = buf.readVarInt();
+                // 长度钳制：恶意客户端可以填一个巨大的 varint，
+                // 直接 new ArrayList<>(n) 会 OOM（见 Payloads.clampCount 注释）
+                int n = Payloads.clampCount(buf.readVarInt(), 32768);
                 List<NetAction> list = new ArrayList<>(n);
                 for (int i = 0; i < n; i++) {
                     list.add(new NetAction(buf.readLong(), buf.readUtf(64), buf.readUtf(256),

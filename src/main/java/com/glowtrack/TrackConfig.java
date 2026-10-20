@@ -30,6 +30,10 @@ public final class TrackConfig {
             .comment("打开追踪界面所需的最低 OP 等级")
             .defineInRange("requiredOpLevel", 4, 0, 4);
 
+    public static final ModConfigSpec.IntValue SETTINGS_OP_LEVEL = B
+            .comment("修改全局采样/保留设置所需的最低 OP 等级（独立于 requiredOpLevel：这些设置影响全服，不能被 LuckPerms 追踪权限顺带授予）")
+            .defineInRange("settingsOpLevel", 2, 0, 4);
+
     public static final ModConfigSpec.ConfigValue<String> PERMISSION_NODE = B
             .comment("额外权限节点：OP 等级不足的玩家只要拥有该 LuckPerms 节点也可使用。节点 ID 固定为 glowtrack:gui（在 LuckPerms 中授权 glowtrack.gui 即可）；此开关只控制是否启用节点检查，留空 = 仅按 OP 等级判定")
             .define("permissionNode", "glowtrack.gui");
