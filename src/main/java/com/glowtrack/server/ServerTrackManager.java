@@ -76,7 +76,7 @@ public final class ServerTrackManager {
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
         initIfNeeded(event.getServer());
-        int removed = instance.store.enforceRetention(TrackConfig.RETENTION_DAYS.get());
+        int removed = instance.store.enforceRetention(TrackConfig.retentionDays());
         GlowTrack.LOGGER.info("[GlowTrack] track storage ready, cleaned {} expired files", removed);
     }
 
@@ -226,7 +226,7 @@ public final class ServerTrackManager {
 
     /** 开始追踪：下发历史快照并登记订阅关系。 */
     public void startTracking(ServerPlayer watcher, UUID target, int days) {
-        int d = Math.max(1, Math.min(days, TrackConfig.RETENTION_DAYS.get()));
+        int d = Math.max(1, Math.min(days, TrackConfig.retentionDays()));
         List<TrackPoint> history = store.loadRange(target, d);
         List<Payloads.NetPoint> net = new java.util.ArrayList<>();
         for (TrackPoint p : history) net.add(net(target, p));
@@ -274,7 +274,7 @@ public final class ServerTrackManager {
 
     /** 历史传送：把观察者送到目标玩家在某时刻的位置（含跨维度）。 */
     public void teleportTo(ServerPlayer watcher, UUID target, long timeMillis) {
-        List<TrackPoint> history = store.loadRange(target, TrackConfig.RETENTION_DAYS.get());
+        List<TrackPoint> history = store.loadRange(target, TrackConfig.retentionDays());
         if (history.isEmpty()) {
             watcher.displayClientMessage(Component.translatable("glowtrack.teleport.empty"), false);
             return;

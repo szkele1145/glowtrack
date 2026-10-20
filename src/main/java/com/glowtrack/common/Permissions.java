@@ -30,7 +30,7 @@ public final class Permissions {
             (player, node, ctx) -> {
                 if (player == null) return false;
                 CommandSourceStack src = player.createCommandSourceStack();
-                return src.hasPermission(TrackConfig.REQUIRED_OP_LEVEL.get());
+                return src.hasPermission(TrackConfig.requiredOpLevel());
             });
 
     @SubscribeEvent
@@ -42,8 +42,8 @@ public final class Permissions {
     public static boolean canUse(ServerPlayer player) {
         if (player == null) return false;
         CommandSourceStack src = player.createCommandSourceStack();
-        if (src.hasPermission(TrackConfig.REQUIRED_OP_LEVEL.get())) return true;
-        String node = TrackConfig.PERMISSION_NODE.get();
+        if (src.hasPermission(TrackConfig.requiredOpLevel())) return true;
+        String node = TrackConfig.permissionNode();
         if (node == null || node.isBlank()) return false;   // 留空 = 仅按 OP 等级
         try {
             return Boolean.TRUE.equals(PermissionAPI.getPermission(player, GUI_NODE));
@@ -65,6 +65,6 @@ public final class Permissions {
     public static boolean canModifyGlobalSettings(ServerPlayer player) {
         if (player == null) return false;
         CommandSourceStack src = player.createCommandSourceStack();
-        return src.hasPermission(TrackConfig.SETTINGS_OP_LEVEL.get());
+        return src.hasPermission(TrackConfig.settingsOpLevel());
     }
 }

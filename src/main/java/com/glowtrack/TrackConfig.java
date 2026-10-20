@@ -41,4 +41,60 @@ public final class TrackConfig {
     public static final ModConfigSpec SPEC = B.build();
 
     private TrackConfig() {}
+
+    /**
+     * 安全的配置读取：配置尚未加载时回退到 spec 里的默认值。
+     *
+     * <p>{@link ModConfigSpec.ConfigValue#get()} 在配置未加载时抛
+     * {@code IllegalStateException}。服务端跑起来之后配置总是加载好的，
+     * 但纯 JVM 环境的自检（无 NeoForge 运行时）会撞上这个异常——
+     * 采样器这类纯逻辑类必须能在没有游戏运行时的环境里被测试。</p>
+     */
+    private static <T> T safe(ModConfigSpec.ConfigValue<T> value, T fallback) {
+        try {
+            return value.get();
+        } catch (Throwable t) {
+            return fallback;
+        }
+    }
+
+    /** 采样间隔（tick）。 */
+    public static int sampleIntervalTicks() {
+        return safe(SAMPLE_INTERVAL_TICKS, 20);
+    }
+
+    /** 最小记录位移（格）。 */
+    public static double minMoveDistance() {
+        return safe(MIN_MOVE_DISTANCE, 0.0D);
+    }
+
+    /** 拐弯补点的角度阈值（度）。 */
+    public static double turnAngleThreshold() {
+        return safe(TURN_ANGLE_THRESHOLD, 25.0D);
+    }
+
+    /** 历史轨迹保留天数。 */
+    public static int retentionDays() {
+        return safe(RETENTION_DAYS, 7);
+    }
+
+    /** 单玩家内存中轨迹点数上限。 */
+    public static int maxPointsPerPlayer() {
+        return safe(MAX_POINTS_PER_PLAYER, 50000);
+    }
+
+    /** 打开追踪界面所需的最低 OP 等级。 */
+    public static int requiredOpLevel() {
+        return safe(REQUIRED_OP_LEVEL, 4);
+    }
+
+    /** 修改全局设置所需的最低 OP 等级。 */
+    public static int settingsOpLevel() {
+        return safe(SETTINGS_OP_LEVEL, 2);
+    }
+
+    /** 额外权限节点 ID（留空 = 仅按 OP 等级判定）。 */
+    public static String permissionNode() {
+        return safe(PERMISSION_NODE, "glowtrack.gui");
+    }
 }

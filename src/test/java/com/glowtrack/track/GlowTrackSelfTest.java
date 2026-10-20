@@ -27,6 +27,7 @@ public final class GlowTrackSelfTest {
         dimensionsSkipNullDimension();
         retentionRemovesExpiredFilesAndEmptyDirs();
         packetCountClampBlocksOom();
+        samplerDetectsSmoothTurn();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -228,6 +229,33 @@ public final class GlowTrackSelfTest {
         s.shouldSample(0L, 0L, 0, 0, 0, "minecraft:overworld");
         boolean sampled = s.shouldSample(1L, 50L, 0.1, 0, 0.1, "minecraft:the_nether");
         check("维度切换必定采样", sampled, "sampled=" + sampled);
+    }
+
+    /**
+     * 平滑弯道也必须触发补点。
+     *
+     * <p>修复前 lastHeading 被"上次采样点朝向"和"上一 tick 朝向"两个用途共用，
+     * 每 tick 覆盖后比较的其实是 tick↔tick 的朝向差——每 tick 只转 5° 的
+     * 平滑弯道（累计转了 30°，超过默认 25° 阈值）永远触发不了补点，
+     * 轨迹会在弯道处被拉成一条直线。</p>
+     */
+    private static void samplerDetectsSmoothTurn() {
+        Sampler s = new Sampler();
+        String dim = "minecraft:overworld";
+        // 起点：沿 +X
+        s.shouldSample(0L, 0L, 0, 64, 0, dim);
+        // 每 tick 转 10°，走 1 格（累计转向 60°，超过默认 25° 阈值）
+        // 采样间隔 20 tick，这几 tick 内不会触发时间条件；
+        // 位移 1 格 < 默认最小位移 0；只有"转向补点"能触发。
+        int samples = 0;
+        double x = 0, z = 0;
+        for (int i = 1; i <= 8; i++) {
+            double ang = Math.toRadians(i * 10.0);
+            x += Math.cos(ang);
+            z += Math.sin(ang);
+            if (s.shouldSample(i, i * 50L, x, 64, z, dim)) samples++;
+        }
+        check("平滑弯道触发补点（累计转向超阈值）", samples >= 1, "samples=" + samples);
     }
 
     private static TrackPoint pt(long t) {

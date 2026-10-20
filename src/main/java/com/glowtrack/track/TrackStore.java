@@ -85,8 +85,8 @@ public final class TrackStore {
         PlayerTrack t = trackFor(id, name);
         boolean ok = t.append(p);
         // 只在超限时裁剪（避免每 append 一次 O(n) subList 检查；50k 点时每秒 20 次）
-        if (ok && t.size() > com.glowtrack.TrackConfig.MAX_POINTS_PER_PLAYER.get())
-            t.trimToSize(com.glowtrack.TrackConfig.MAX_POINTS_PER_PLAYER.get());
+        if (ok && t.size() > com.glowtrack.TrackConfig.maxPointsPerPlayer())
+            t.trimToSize(com.glowtrack.TrackConfig.maxPointsPerPlayer());
         return ok;
     }
 
