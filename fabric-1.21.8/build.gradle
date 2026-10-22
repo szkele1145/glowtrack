@@ -1,0 +1,78 @@
+
+plugins {
+    id 'fabric-loom' version '1.11.8'
+    id 'maven-publish'
+}
+
+version = '1.4.8'
+group = 'com.glowtrack'
+base { archivesName = 'glowtrack' }
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.8'
+    // 用 Mojang 官方映射：母版（NeoForge）就是官方映射，
+    // 这样跨平台/跨版本移植时源码基本可以 1:1 复用。
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.18.4'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.136.1+1.21.8'
+    // Xaero 世界地图 / 小地图（可选依赖，仅编译期用于 Mixin 离线；未安装则运行时跳过）
+    compileOnly files('../libs/xaeroworldmap-1.21.8.jar')
+    compileOnly files('../libs/xaerominimap-1.21.8.jar')
+}
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+// ==== 零依赖回归自检 ====
+sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
+
+tasks.register('selfTest', JavaExec) {
+    group = 'verification'
+    description = 'Runs the zero-dependency glowtrack regression self-test.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.glowtrack.track.GlowTrackSelfTest'
+}
+tasks.named('check') { dependsOn tasks.named('selfTest') }
+tasks.named('test') { failOnNoDiscoveredTests = false }
+
+processResources {
+    var replaceProperties = [
+            minecraft_version: '1.21.8',
+            mod_id: 'glowtrack',
+            mod_name: 'GlowTrack',
+            mod_license: 'MIT',
+            mod_version: project.version,
+            mod_authors: 'GlowTrack'
+    ]
+    inputs.properties replaceProperties
+    filesMatching('fabric.mod.json') { expand replaceProperties }
+}
+
+jar {
+    archiveFileName = "glowtrack-${version}-1.21.8-fabric.jar"
+    manifest {
+        attributes([
+                'Specification-Title': 'glowtrack',
+                'Specification-Vendor': 'GlowTrack',
+                'Implementation-Title': 'GlowTrack',
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': 'GlowTrack'
+        ])
+    }
+}
+
+// 生产 jar（remap 后）也要带上版本 + 平台后缀，方便 Modrinth 区分
+remapJar {
+    archiveFileName = "glowtrack-${version}-1.21.8-fabric.jar"
+}
