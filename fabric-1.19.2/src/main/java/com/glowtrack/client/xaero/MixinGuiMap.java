@@ -18,14 +18,14 @@ import java.util.List;
  * 注入 Xaero 世界地图渲染，在地图上叠加当前追踪轨迹线。
  *
  * <p>相机坐标反射读 private {@code cameraX}/{@code cameraZ} 字段（跨版本比局部变量稳定）；
- * 矩阵栈用 {@code @Local} 捕获（唯一在 TAIL 存活的局部变量）。</p>
+ * 矩阵栈直接取注入方法的第一个参数（{@code renderPreDropdown} 的 PoseStack）。</p>
  */
 @Mixin(value = GuiMap.class, remap = false)
 public abstract class MixinGuiMap {
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void glowtrack$drawTrajectory(CallbackInfo ci,
-            @com.llamalad7.mixinextras.sugar.Local(name = "matrixStack") PoseStack pose) {
+    @Inject(method = "renderPreDropdown(Lcom/mojang/blaze3d/vertex/PoseStack;IIIF)V", at = @At("TAIL"))
+    private void glowtrack$drawTrajectory(PoseStack pose, int mouseX, int mouseY,
+                                          float partialTicks, CallbackInfo ci) {
         try {
             XaeroMixinPlugin.markActivated("MixinGuiMap");
             if (!ClientSettings.get().xaeroMap) return;

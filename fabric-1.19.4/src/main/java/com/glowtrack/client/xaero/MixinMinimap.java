@@ -27,7 +27,7 @@ import java.util.List;
 @Mixin(value = MinimapProcessor.class, remap = false)
 public abstract class MixinMinimap {
 
-    @Inject(method = "onRender(Lcom/mojang/blaze3d/vertex/PoseStack;IIIDIIIFLxaero/common/graphics/CustomVertexConsumers;)V",
+    @Inject(method = "onRender(Lcom/mojang/blaze3d/vertex/PoseStack;IIIIDIIFLxaero/common/graphics/CustomVertexConsumers;)V",
             at = @At("TAIL"))
     private void glowtrack$drawOnMinimap(PoseStack matrixStack, int x, int y, int width, int height,
                                          double scale, int size, int boxSize, float partial,

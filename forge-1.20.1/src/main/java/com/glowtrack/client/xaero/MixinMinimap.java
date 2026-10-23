@@ -39,7 +39,7 @@ import java.util.List;
 @Mixin(value = MinimapProcessor.class, remap = false)
 public abstract class MixinMinimap {
 
-    @Inject(method = "onRender(net.minecraft.client.gui.GuiGraphics;IIIDIIIFLxaero/common/graphics/CustomVertexConsumers;)V", at = @At("TAIL"))
+    @Inject(method = "onRender(net.minecraft.client.gui.GuiGraphics;IIIIDIIFLxaero/common/graphics/CustomVertexConsumers;)V", at = @At("TAIL"))
     private void glowtrack$drawOnMinimap(net.minecraft.client.gui.GuiGraphics guiGraphics, int x, int y, int width, int height,
                                          double scale, int size, int boxSize, float partial,
                                          xaero.common.graphics.CustomVertexConsumers cvc, CallbackInfo ci) {

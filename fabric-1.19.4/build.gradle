@@ -23,8 +23,6 @@ dependencies {
     // Xaero 世界地图 / 小地图（可选依赖，仅编译期用于 Mixin 离线；未安装则运行时跳过）
     compileOnly files('../libs/xaeroworldmap-1.19.4.jar')
     compileOnly files('../libs/xaerominimap-1.19.4.jar')
-    // MixinExtras：@Local 注解（Xaero 注入点需要）
-    modCompileOnly 'io.github.llamalad7:mixinextras-fabric:0.5.0'
 }
 
 java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
