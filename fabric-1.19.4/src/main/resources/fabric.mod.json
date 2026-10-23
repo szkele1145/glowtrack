@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "glowtrack",
+  "version": "${mod_version}",
+  "name": "GlowTrack",
+  "description": "Player movement trajectory tracker with glowing 3D path rendering, timeline review, teleport, and Xaero map integration.",
+  "authors": [
+    "GlowTrack"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/glowtrack/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.glowtrack.fabric.GlowTrackFabric"
+    ],
+    "client": [
+      "com.glowtrack.fabric.GlowTrackFabricClient"
+    ]
+  },
+  "mixins": [
+    "glowtrack.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "minecraft": "~1.19.4",
+    "java": ">=17"
+  }
+}
