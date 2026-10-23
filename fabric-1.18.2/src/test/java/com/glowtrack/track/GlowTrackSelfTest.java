@@ -29,6 +29,7 @@ public final class GlowTrackSelfTest {
         packetCountClampBlocksOom();
         samplerDetectsSmoothTurn();
         actionEventsAreClearedOnTargetSwitch();
+        nearestByTimeHandlesBoundaries();
 
         System.out.println(failed == 0
                 ? "OK: all glowtrack self-tests passed (" + passed + ")"
@@ -294,6 +295,41 @@ public final class GlowTrackSelfTest {
     private static TrackPoint pt(long t) {
         return new TrackPoint(t, 0, 0, 0,
                 new net.minecraft.resources.ResourceLocation("minecraft:overworld"), 0f, 0f, 0f);
+    }
+
+
+    /** TrackTimes.nearestByTime：二分查找的边界（游标定位靠它，错了不会崩只会跳错点）。 */
+    private static void nearestByTimeHandlesBoundaries() {
+        // 空列表：返回 null，不能抛
+        check("空列表返回 null",
+                com.glowtrack.track.TrackTimes.nearestByTime(new java.util.ArrayList<>(), 12345L) == null);
+
+        var dim = new net.minecraft.resources.ResourceLocation("minecraft:overworld");
+        java.util.List<TrackPoint> one = new java.util.ArrayList<>();
+        one.add(new TrackPoint(500, 0, 64, 0, dim, 0, 0, 0));
+        check("单元素：任意目标都返回它",
+                com.glowtrack.track.TrackTimes.nearestByTime(one, 0L).timeMillis() == 500
+                        && com.glowtrack.track.TrackTimes.nearestByTime(one, 999999L).timeMillis() == 500);
+
+        java.util.List<TrackPoint> pts = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            pts.add(new TrackPoint(1000L * i, i, 64, 0, dim, 0, 0, 0));
+        }
+        // 目标小于最小值：落到第一个，不能数组越界
+        check("目标小于最小值：取首点",
+                com.glowtrack.track.TrackTimes.nearestByTime(pts, -5000L).timeMillis() == 0);
+        // 目标大于最大值：落到最后一个
+        check("目标大于最大值：取末点",
+                com.glowtrack.track.TrackTimes.nearestByTime(pts, 99999L).timeMillis() == 9000);
+        // 精确命中
+        check("精确命中返回该点",
+                com.glowtrack.track.TrackTimes.nearestByTime(pts, 3000L).timeMillis() == 3000);
+        // 落在两点正中（2500）：实现用 <= 偏向左侧，锁住这个行为
+        check("正中偏向较前的一点",
+                com.glowtrack.track.TrackTimes.nearestByTime(pts, 2500L).timeMillis() == 2000);
+        // 略微偏向右侧
+        check("偏向较后的一点",
+                com.glowtrack.track.TrackTimes.nearestByTime(pts, 2600L).timeMillis() == 3000);
     }
 
     private static void check(String name, boolean ok) {
