@@ -399,10 +399,14 @@ public final class ClientTrackState {
     // ==================== 发送便捷方法 ====================
 
     public static void sendToServer(Object payload) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getConnection() != null) {
-            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                    (net.fabricmc.fabric.api.networking.v1.FabricPacket) payload);
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.getConnection() != null) {
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        (net.fabricmc.fabric.api.networking.v1.FabricPacket) payload);
+            }
+        } catch (Throwable ignored) {
+            // 通道未协商（对端版本不匹配）——静默跳过，不要让 GUI 点击把客户端带崩
         }
     }
 }
