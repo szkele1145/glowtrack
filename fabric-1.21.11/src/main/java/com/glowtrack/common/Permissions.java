@@ -6,7 +6,7 @@ import net.minecraft.server.permissions.LevelBasedPermissionSet;
 import net.minecraft.server.permissions.PermissionLevel;
 
 /**
- * 权限判定（Fabric / 1.21.9+ 版）。
+ * 权限判定（Fabric / 1.21.11+ 版）。
  *
  * <p>母版（NeoForge 1.21.1）用 {@code CommandSourceStack.hasPermission(int)} 直接比较
  * OP 等级。1.21.9+ 的 Mojmap 把这套换成了 {@code PermissionSet} 体系：

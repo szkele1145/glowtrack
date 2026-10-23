@@ -31,5 +31,6 @@ public final class GlowTrackFabric implements ModInitializer {
         LOGGER.info("[GlowTrack] 模组初始化完成（Fabric / 1.21.11）");
     }
 
-    private GlowTrackFabric() {}
+    // Fabric 用反射实例化 entrypoint：构造器必须可访问，private 会让 mod 加载直接失败
+    public GlowTrackFabric() {}
 }

@@ -5,7 +5,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * 权限判定（Fabric / 1.21.8 版）。
+ * 权限判定（Fabric / 1.19.4 版）。
  *
  * <p>母版（NeoForge 1.21.1）用 {@code CommandSourceStack.hasPermission(int)} 直接比较
  * OP 等级。1.21.8 与母版一致，Fabric 侧没有 PermissionAPI，所以只按 OP 等级判定；

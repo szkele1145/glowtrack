@@ -48,5 +48,6 @@ public final class GlowTrackFabricClient implements ClientModInitializer {
                 .register(client -> ClientEvents.onLoggingOut());
     }
 
-    private GlowTrackFabricClient() {}
+    // Fabric 用反射实例化 entrypoint：构造器必须可访问，private 会让 mod 加载直接失败
+    public GlowTrackFabricClient() {}
 }
