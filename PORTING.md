@@ -86,13 +86,30 @@ Fabric 模块用 `gradle-9.4.1`；Forge 模块必须用 `gradle-8.10.2`（ForgeG
 
 ## 发布前必查
 
-1. 7 个模块 `build` 全过，`selfTest` 40 条断言全过（零依赖，不需要游戏运行时）。
+1. 7 个模块 `build` 全过，`selfTest` 47 条断言全过（零依赖，不需要游戏运行时）。
 2. `glowtrack.mixins.json` 的 `client` 列表与实际 `Mixin*.java` 文件**一一对应**。
    空模板（`package` 指向不存在的包）会让 mixin 静默不加载 —— 这个坑踩过一次。
-3. **每个 mixin 的注入点都要用 javap 核对两件事**：
-   ① 目标方法**在目标类自己**声明（继承来的不行，Mixin 只看本类）；
-   ② 方法描述符逐字符一致（几个 `I` 都不能错）。
-   `defaultRequire: 0` 会让不匹配的注入静默回滚，症状是"功能没了但不报错"。
+3. **mixin 注入点：一律只写方法名，不带描述符。**
+
+   ```java
+   @Inject(method = "onRender", at = @At("TAIL"))   // ✓
+   @Inject(method = "onRender(Lcom/mojang/...;IIII...)V", ...)  // ✗
+   ```
+
+   带描述符有两个独立的坑，都在 `defaultRequire: 0` 下静默回滚：
+
+   - **`remap = false` 时描述符不重映射。** 注入第三方 mod（Xaero）必须 `remap = false`，
+     此时描述符里的 Minecraft 类名保持编译期写法（mojmap），而 Fabric 运行时是
+     intermediary（`net/minecraft/class_4587`）—— 永远对不上。refmap 也是空的
+     （`{"mappings":{}}`），因为 remap=false 压根不生成映射。
+   - **描述符必须用 JVM 内部名（斜杠），写成点号直接解析失败。**
+     这一条踩过：两个 Forge 模块的同一处代码，一个写 `Lcom/mojang/...`（对），
+     一个写 `net.minecraft.client.gui.GuiGraphics`（点号，非法）。
+
+   只写方法名就没有描述符可写错，参数类型由 knot/ModLauncher 在加载 mixin 类时统一映射。
+   **前提是目标方法无重载**——有重载时必须用描述符，那就得写运行时的名字（Fabric 用
+   intermediary、Forge 用 mojmap），并逐个平台核对，风险高得多。
+
 4. Forge 的 `mods.toml` 里 Xaero 依赖必须是 `mandatory = false`，否则没装 Xaero 的
    玩家会被拦在启动画面。
 5. Forge 的 jar 必须已 reobf：扫一遍 class 应当只剩 SRG 方法名（`m_xxxxx_`），
