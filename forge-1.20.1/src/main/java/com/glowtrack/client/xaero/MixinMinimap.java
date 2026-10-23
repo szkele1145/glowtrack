@@ -39,7 +39,12 @@ import java.util.List;
 @Mixin(value = MinimapProcessor.class, remap = false)
 public abstract class MixinMinimap {
 
-    @Inject(method = "onRender(net.minecraft.client.gui.GuiGraphics;IIIIDIIFLxaero/common/graphics/CustomVertexConsumers;)V", at = @At("TAIL"))
+    
+    // 注入点只写方法名、不带描述符：
+    //   · 本 mixin 是 remap = false，描述符不会重映射，写编译期类名在运行时对不上；
+    //   · 描述符还要求 JVM 内部名（斜杠），点号形式直接解析不出方法；
+    //   · 目标方法无重载（javap 已确认），按名字注入即可。
+    @Inject(method = "onRender", at = @At("TAIL"))
     private void glowtrack$drawOnMinimap(net.minecraft.client.gui.GuiGraphics guiGraphics, int x, int y, int width, int height,
                                          double scale, int size, int boxSize, float partial,
                                          xaero.common.graphics.CustomVertexConsumers cvc, CallbackInfo ci) {
