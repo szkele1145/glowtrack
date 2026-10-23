@@ -3,7 +3,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const TOKEN = 'mrp_' + 'HhdbSQhqUdMNWM4Gl6nEpt6Oz2bIVVvXdQMnqgoayoVHdNGUaB1kbUv3Cn47';
+// 不要在这里写密钥：本仓库是公开的，历史提交无法撤回。
+// 在 Modrinth 后台生成 token 后，用环境变量传入：
+//   PowerShell:  $env:MODRINTH_TOKEN = 'mrp_...'; node upload_modrinth.mjs
+const TOKEN = process.env.MODRINTH_TOKEN || '';
+if (!TOKEN) {
+  console.error('缺少环境变量 MODRINTH_TOKEN');
+  process.exit(1);
+}
 const UA = 'glowtrack/1.0.0 (szkele1145)';
 const API = 'https://api.modrinth.com/v2';
 const JAR = 'D:/player-tracker/build/libs/glowtrack-1.0.0.jar';

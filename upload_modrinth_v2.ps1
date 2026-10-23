@@ -1,7 +1,8 @@
 param([string]$Version = "1.2.0", [string]$Changelog = "Update", [string]$JarPath = "")
 $ErrorActionPreference = 'Stop'
 $repo = 'D:\player-tracker'
-$tok  = 'mrp_HhdbSQhqUdMNWM4Gl6nEpt6Oz2bIVVvXdQMnqgoayoVHdNGUaB1kbUv3Cn47'
+$tok = $env:MODRINTH_TOKEN
+if (-not $tok) { throw "需要环境变量 MODRINTH_TOKEN（勿写进仓库）" }
 $UA   = 'glowtrack/1.0.0'
 if (-not $JarPath) { $JarPath = "$repo\build\libs\glowtrack-$Version.jar" }
 

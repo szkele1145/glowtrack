@@ -10,7 +10,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-$tok = (Get-Content .\upload_modrinth.mjs | Select-String "TOKEN = 'mrp_' \+ '").Line -replace ".*'mrp_' \+ '([A-Za-z0-9]+)'.*", 'mrp_$1'
+$tok = $env:MODRINTH_TOKEN
+if (-not $tok) { throw "缺少环境变量 MODRINTH_TOKEN" }
 $jarName = Split-Path $JarPath -Leaf
 $sha1 = (Get-FileHash $JarPath -Algorithm SHA1).Hash.ToLower()
 
