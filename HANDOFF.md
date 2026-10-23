@@ -1,5 +1,25 @@
 # 交付说明（2026-10-23）
 
+## ⚠️ 当前阻塞：Modrinth 账号级审核（2026-10-24 发现）
+
+两个项目的**公开访问已全部 404**，但用 token 鉴权仍能读到内容。排查结论：
+
+| 检查项 | 结果 |
+|---|---|
+| 未认证 `GET /v2/project/mpdIYgGq` | **404** |
+| 鉴权 `GET /v2/project/mpdIYgGq` | 200，`status=processing`，`requested_status=approved` |
+| 账号下 9 个项目 | **全部** `processing` |
+| 具体项目的下架通知 | **没有**（唯一一条通知是 10-14 的旧事，另一个项目） |
+| 内容是否完好 | 完好：GlowTrack 27 版本 / WorldReplay 67 版本，全部 `listed` |
+| token 是否有效 | 有效（HTTP 200） |
+
+**这不是我们误删，也不是上传触发。** 9 个项目同时进入 `processing`、且没有任何针对性通知，
+是账号级复审的特征。内容是安全的，等平台放行即可，**不要在此时重复上传或删版本**——
+那只会给复审增加噪音。
+
+恢复后要做的第一件事：核对线上版本清单与下表是否一致（`D:\tools\gt_dist` / `wr_dist` 里的
+jar 都是最后一轮的修复版）。
+
 ## 这次做了什么
 
 把 GlowTrack 和 WorldReplay 移植到 7 个新平台，并做了发布前的静态验证。
@@ -21,7 +41,7 @@
 | 项目 | GlowTrack | WorldReplay |
 |---|---|---|
 | 构建 | 7/7 BUILD SUCCESSFUL | 9/9 已有产物 |
-| 自测 | 40 条 ×7，经 Gradle 跑 | core 65 条，`javac`+`java` 直跑 |
+| 自测 | 47 条 ×7，经 Gradle 跑 | core 65 条，`javac`+`java` 直跑 |
 | mixin 注入点 | javap 逐版本核对真实依赖 jar | 同 |
 | 网络兜底 | 7/7 有 try/catch | 9/9 有 |
 | Forge reobf | 250 处 SRG 名、0 处 mojmap 名 | — |
