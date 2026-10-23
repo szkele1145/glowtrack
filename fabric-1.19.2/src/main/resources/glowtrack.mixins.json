@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8.5",
+  "package": "com.glowtrack.client.xaero",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [],
+  "client": [
+    "MixinGuiMap",
+    "MixinMinimap"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  },
+  "plugin": "com.glowtrack.client.xaero.XaeroMixinPlugin"
+}

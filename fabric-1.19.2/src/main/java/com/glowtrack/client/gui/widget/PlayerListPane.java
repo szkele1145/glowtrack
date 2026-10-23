@@ -1,0 +1,135 @@
+package com.glowtrack.client.gui.widget;
+
+import com.glowtrack.client.ClientTrackState;
+import com.glowtrack.network.Payloads;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+/**
+ * 玩家列表面板：搜索过滤后的白名单条目、在线状态、头像、滚动。
+ *
+ * <p>从 TrackScreen 拆出。宿主通过 {@link SelectionListener} 接收选中变化，
+ * 通过 setter 提供过滤后的数据（数据归 TrackScreen 管，面板只管显示与滚动）。</p>
+ */
+public class PlayerListPane extends AbstractWidget {
+
+    private static final int ROW = 24;
+
+    /** 选中变化回调。 */
+    public interface SelectionListener {
+        void onSelected(Payloads.PlayerEntry entry);
+    }
+
+    private List<Payloads.PlayerEntry> items = List.of();
+    private Payloads.PlayerEntry selected;
+    private final SelectionListener listener;
+    private int scrollPx = 0;
+
+    public PlayerListPane(int x, int y, int w, int h, SelectionListener listener) {
+        super(x, y, w, h, com.glowtrack.client.Text.tr("glowtrack.gui.whitelist"));
+        this.listener = listener;
+    }
+
+    public void setItems(List<Payloads.PlayerEntry> items) {
+        this.items = items;
+        clampScroll();
+    }
+
+    public void setSelected(Payloads.PlayerEntry e) { this.selected = e; }
+
+    public void resetScroll() { scrollPx = 0; }
+
+    private void clampScroll() {
+        int maxScroll = Math.max(0, items.size() * ROW - height);
+        scrollPx = Math.max(0, Math.min(scrollPx, maxScroll));
+    }
+
+    @Override
+    public void render(PoseStack g, int mouseX, int mouseY, float partialTick) {
+        var font = Minecraft.getInstance().font;
+        int x = this.x, y0 = this.y, w = width, h = height;
+        GuiComponent.enableScissor(x, y0, x + w, y0 + h);
+        int y = y0 - scrollPx;
+        for (int i = 0; i < items.size(); i++) {
+            Payloads.PlayerEntry e = items.get(i);
+            if (y + ROW >= y0 && y <= y0 + h) {
+                boolean sel = selected != null && selected.id().equals(e.id());
+                boolean hov = mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY < y + ROW - 2;
+                if (sel) GuiComponent.fill(g, x, y, x + w, y + ROW - 2, Palette.SEL_BG);
+                else if (hov) GuiComponent.fill(g, x, y, x + w, y + ROW - 2, Palette.HOVER_BG);
+                drawHead(g, e.id(), e.name(), x + 2, y + 4);
+                font.draw(g, e.name(), x + 24, y + 4, sel ? Palette.ACCENT : Palette.TXT_BRIGHT);
+                GuiComponent.fill(g, x + 24, y + 15, x + 28, y + 19, e.online() ? Palette.ONLINE : Palette.OFFLINE);
+                font.draw(g, e.online() ? com.glowtrack.client.Text.s("glowtrack.gui.online") : com.glowtrack.client.Text.s("glowtrack.gui.offline"), x + 32, y + 14, e.online() ? Palette.ONLINE : Palette.TXT_FAINT);
+            }
+            y += ROW;
+        }
+        GuiComponent.disableScissor();
+        if (items.isEmpty())
+            font.draw(g, ClientTrackState.get().whitelist().isEmpty() ? com.glowtrack.client.Text.s("glowtrack.gui.no_whitelist") : com.glowtrack.client.Text.s("glowtrack.gui.no_match"), x + 4, y0 + 4, Palette.TXT_FAINT);
+        int maxScroll = Math.max(0, items.size() * ROW - h);
+        if (maxScroll > 0) {
+            int barH = Math.max(20, h * h / (items.size() * ROW));
+            int barY = y0 + (int) ((h - barH) * (scrollPx / (double) maxScroll));
+            GuiComponent.fill(g, x + w - 3, barY, x + w - 1, barY + barH, Palette.SCROLLBAR);
+        }
+    }
+
+    /** 头像纹理缓存：UUID → 最近一次解析到的皮肤纹理位置。避免每帧构造 GameProfile + 查表。 */
+    private static final java.util.Map<UUID, net.minecraft.resources.ResourceLocation> SKIN_CACHE =
+            new java.util.HashMap<>();
+
+    private void drawHead(PoseStack g, UUID id, String name, int x, int y) {
+        // 1.19.2 没有 PlayerSkin record（1.20.1+ 才有），
+        // 直接取皮肤纹理的 ResourceLocation。
+        net.minecraft.resources.ResourceLocation skin = SKIN_CACHE.get(id);
+        if (skin == null) {
+            try {
+                skin = Minecraft.getInstance().getSkinManager()
+                        .getInsecureSkinLocation(new com.mojang.authlib.GameProfile(id, name));
+                if (skin != null) SKIN_CACHE.put(id, skin);
+            } catch (Throwable ignored) {}
+        }
+        if (skin != null) {
+            try {
+                // 1.19.2 的 GuiComponent.blit 只接受整数 uv 参数，纹理靠
+                // RenderSystem.setShaderTexture 绑定（1.20+ 才有 ResourceLocation 重载）。
+                com.mojang.blaze3d.systems.RenderSystem.setShaderTexture(0, skin);
+                GuiComponent.blit(g, x, y, 8, 8, 8, 8, 64, 64);
+                return;
+            } catch (Throwable ignored) {}
+        }
+        GuiComponent.fill(g, x, y, x + 16, y + 16, 0xFF30363D);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (!isMouseOver(mx, my)) return false;
+        int idx = (int) ((my - this.y + scrollPx) / ROW);
+        if (idx >= 0 && idx < items.size()) {
+            selected = items.get(idx);
+            listener.onSelected(selected);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double sx) {
+        if (!isMouseOver(mx, my)) return false;   // 面板外的滚轮不吞事件（不挡时间轴缩放）
+        int maxScroll = Math.max(0, items.size() * ROW - height);
+        scrollPx = Math.max(0, Math.min(scrollPx - (int) (sx * 12), maxScroll));
+        return true;
+    }
+
+    @Override
+    public void updateNarration(NarrationElementOutput out) {}
+}
