@@ -30,6 +30,10 @@
 
 这类问题的共同成因是 **Mixin 失败被吞掉**或 **异常被静默捕获**，症状都是"看起来正常，功能没有"。
 
+前五条是静态核对抓到的（javap 对签名、扫 jar 内容、比对 mixin 注册表）。
+**后两条只有真机 `runServer` 才抓得到**，而且它们比前五条严重得多——前五条是"某个功能不生效"，
+后两条是"整个模组加载不起来"，而编译、自检、jar 结构全都正常。
+
 1. **五个模块的小地图叠加从未生效**（1.18.2 / 1.19.2 / 1.19.4 / Forge 1.19.4 / Forge 1.20.1）
    `MinimapProcessor#onRender` 的描述符写成 `IIIDIIIF`，实际是 `IIIIDIIF`（4 个 int 才轮到 double）。
    Mixin 按描述符查方法，差一个字符就永远匹配不上；`defaultRequire: 0` 让它静默回滚。
@@ -47,6 +51,42 @@
    而描述里写着 "Xaero map integration"、GUI 开关还能点。已删死代码、改描述、开关置灰。
 
 5. **Forge jar 里混着 `neoforge.mods.toml`**（占位符未展开的母版遗留）。
+
+6. **Fabric 入口类用 private 构造器 —— 模组完全无法加载**（五个 Fabric 平台全部）
+   模板里留的是 `private GlowTrackFabric() {}`（工具类的习惯写法）。Fabric Loader 用反射
+   `newInstance()` 创建 entrypoint，构造器不可访问就抛：
+
+   ```
+   IllegalAccessException: DefaultLanguageAdapter cannot access a member of
+   class com.glowtrack.fabric.GlowTrackFabric with modifiers "private"
+   ```
+
+   服务端表现是 `Failed to start the minecraft server / Could not execute
+   entrypoint stage 'main'`。**已发布到 Modrinth 的五个 Fabric 版本一个都起不来。**
+   入口类的构造器必须是 public。
+
+7. **Forge 把 FORGE 总线事件挂到 MOD 总线 —— 模组加载中止**（两个 Forge 平台）
+   `Permissions` 标注 `bus = Bus.MOD`（从 NeoForge 模板继承）。NeoForge 21.x 会按参数类型
+   自动分流，所以一个类可以同时挂两个总线的订阅；**Forge 1.20.1 没有这个能力**，
+   一个 `@EventBusSubscriber` 类只能属于一个总线，方法参数必须来自该总线：
+
+   ```
+   IllegalArgumentException: Permissions.gatherNodes(PermissionGatherEvent$Nodes)
+   has @SubscribeEvent annotation, but takes an argument that is not a subtype
+   of interface net.minecraftforge.fml.event.IModBusEvent
+   ```
+
+   `PermissionGatherEvent` 属于 FORGE 总线，所以去掉了 `bus = MOD`。
+   移植 NeoForge 代码到 Forge 时，**逐个核对每个 `@EventBusSubscriber` 类里订阅方法的
+   参数类型是否属于同一个总线**，这是最容易漏的一类。
+
+复验方式（改动网络 / GUI / 事件层之后必做）：
+
+```
+cd <模块目录>
+# run/eula.txt 写 eula=true，run/server.properties 换个不冲突的端口
+gradle runServer    # 看到 "Done (x.xxxs)!" 才算加载成功
+```
 
 ## 安全事件：API token 泄露
 
