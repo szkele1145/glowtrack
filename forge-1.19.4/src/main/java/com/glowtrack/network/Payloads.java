@@ -11,11 +11,16 @@ import java.util.UUID;
 /**
  * 全部网络包定义。
  *
- * <p><b>1.19.4 的通道模型</b>：Fabric API 0.76 没有 {@code FabricPacket}/{@code PacketType}
- * （那套依赖 1.19.3+ 的自定义 payload 机制），所以每个包只实现本项目自有的
- * {@link Packet}（一个通道 {@link ResourceLocation} + 一个 {@code write}），
- * 解码走静态 {@code decode}。收发由 {@link ServerNet} / {@code ClientPlayNetworking}
- * 直接把 buf 发到对应通道。</p>
+ * <p><b>Forge 的通道模型</b>：Forge 1.20.1 / 1.19.4 的 Minecraft 还没有
+ * {@code CustomPacketPayload} + {@code StreamCodec}（那是 1.20.5+ 的原生机制），
+ * Forge 侧用的是 {@code SimpleChannel} —— 一个通道 + 有限几种消息类型。
+ * 所以每个逻辑包只实现本项目自有的 {@link Packet}
+ * （一个通道 {@link ResourceLocation} + 一个 {@code write}），解码走静态
+ * {@code decode}；上线时统一装进 {@link Envelope}，由
+ * {@link NetworkHandler#CHANNEL} 发出，收端按 id 查表分派。</p>
+ *
+ * <p><b>字段顺序与其他平台必须一致</b>：同版本下 Fabric 客户端要能连 Forge 服务端，
+ * 任意一处顺序错位都会让对端解析出垃圾数据。</p>
  *
  * <p><b>为什么用静态工厂而不是 record 构造器</b>：Java record 一旦显式声明了
  * 非规范构造器（这里是 {@code (FriendlyByteBuf)}），它必须把 {@code this(...)}
