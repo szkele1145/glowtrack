@@ -23,7 +23,12 @@ import java.util.List;
 @Mixin(value = GuiMap.class, remap = false)
 public abstract class MixinGuiMap {
 
-    @Inject(method = "renderPreDropdown(Lcom/mojang/blaze3d/vertex/PoseStack;IIIF)V", at = @At("TAIL"))
+    
+    // 注入点只写方法名、不带描述符：本 mixin 标了 remap = false，
+    // 描述符里的 Minecraft 类型名不会被重映射（编译期是 mojmap，运行时是
+    // intermediary），带描述符会永远匹配不上且静默回滚。
+    // 目标方法无重载（javap 已确认），按名字注入是安全的。
+    @Inject(method = "renderPreDropdown", at = @At("TAIL"))
     private void glowtrack$drawTrajectory(PoseStack pose, int mouseX, int mouseY,
                                           float partialTicks, CallbackInfo ci) {
         try {
