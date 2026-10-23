@@ -117,7 +117,7 @@ public class TrackScreen extends Screen {
         addRenderableWidget(new FlatToggle(x + 2 * (col3 + 6), yMode, col3, 16,
                 com.glowtrack.client.Text.s("glowtrack.gui.map"),
                 () -> ClientSettings.get().xaeroMap, v -> { ClientSettings.get().xaeroMap = v; ClientSettings.get().save(); })
-                .enabledWhen(() -> com.glowtrack.client.XaeroRuntime.anyXaero()));
+                .enabledWhen(() -> false));   // 本平台暂未实现 Xaero 地图叠加（Xaero 的渲染架构需重写），置灰而非假装可用
 
         addRenderableWidget(FlatButton.of(x, yTele, col3, 20,
                 com.glowtrack.client.Text.tr("glowtrack.gui.teleport"), b -> teleport())
