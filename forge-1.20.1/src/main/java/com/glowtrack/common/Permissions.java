@@ -19,7 +19,7 @@ import net.minecraftforge.server.permission.nodes.PermissionTypes;
  * LuckPerms 等外部权限插件接管时，回退到"OP 等级达标即放行"，
  * 保证裸服务端也能用；装了 LuckPerms 后由其覆盖该节点实现细粒度授权。</p>
  */
-@EventBusSubscriber(modid = GlowTrack.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = GlowTrack.MOD_ID)   // PermissionGatherEvent 是 FORGE 总线事件，不能挂 MOD bus
 public final class Permissions {
     private Permissions() {}
 
