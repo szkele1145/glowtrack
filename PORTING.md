@@ -101,4 +101,17 @@ Fabric 模块用 `gradle-9.4.1`；Forge 模块必须用 `gradle-8.10.2`（ForgeG
 7. 语言文件键完整：源码里的 `Text.s/tr`、`translatable` 键都要在
    `en_us.json` / `zh_cn.json` 里，缺键会直接显示原始 key。
 8. 客户端发包要有 try/catch：`ClientPlayNetworking.send` 在通道未协商时抛异常，
-   而它是在 GUI 点击回调里同步调用的 —— 没有兜底就是"点一下按钮崩客户端"。
+   而它是在 GUI 点击回调里同步调用的 —— 没有兜底就是"点一下按钮崩溃客户端"。
+9. **仓库里不能出现任何 API token**（Modrinth / GitHub）。上传脚本一律读环境变量
+   （`MODRINTH_TOKEN`），缺失就 `throw`，不要写"有默认值"的兜底。
+   本仓库是公开的，**一旦明文提交过就必须视为泄露并立刻轮换** ——
+   删掉当前文件、甚至重写 git 历史都救不回来（旧 commit、fork、缓存里仍有）；
+   唯一有效的动作是去服务商后台撤销旧 token。
+   拆分写法（`'mrp_' + 'xxx'`）只是躲开了 grep，不提供任何安全性。
+
+## 脚本编码
+
+仓库里的 `.ps1` 一律存成 **UTF-8 with BOM**。PowerShell 5.1 会把无 BOM 的脚本
+按 GBK 解析，中文注释会让引号配对错乱，报"字符串缺少终止符"之类的假语法错
+—— 文件本身没问题，是解码方式错了。用 node 写文件再加 BOM，别用
+`Set-Content -Encoding utf8`（它加的 BOM 位置和时机容易和生产工具链打架）。
