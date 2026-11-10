@@ -60,7 +60,7 @@ processResources {
 }
 
 jar {
-    archiveFileName = "glowtrack-${version}-1.21.8-fabric.jar"
+    archiveFileName = "glow-track-${version}-1.21.8-fabric.jar"
     manifest {
         attributes([
                 'Specification-Title': 'glowtrack',
@@ -74,5 +74,5 @@ jar {
 
 // 生产 jar（remap 后）也要带上版本 + 平台后缀，方便 Modrinth 区分
 remapJar {
-    archiveFileName = "glowtrack-${version}-1.21.8-fabric.jar"
+    archiveFileName = "glow-track-${version}-1.21.8-fabric.jar"
 }

@@ -5,7 +5,7 @@ plugins {
 
 version = '1.4.8'
 group = 'com.glowtrack'
-base { archivesName = 'glowtrack' }
+base { archivesName = 'glow-track' }
 
 java { toolchain.languageVersion = JavaLanguageVersion.of(21) }
 
@@ -26,7 +26,7 @@ neoForge {
     }
 
     mods {
-        glowtrack { sourceSet sourceSets.main }
+        glow-track { sourceSet sourceSets.main }
     }
 }
 
@@ -72,8 +72,8 @@ processResources {
             minecraft_version_range: '[1.21.1,1.22)',
             neo_version: project.neo_version,
             neo_version_range: '[21.1.0,)',
-            mod_id: 'glowtrack',
-            mod_name: 'GlowTrack',
+            mod_id: 'glow-track',
+            mod_name: 'Glow Track',
             mod_license: 'MIT',
             mod_version: project.version,
             mod_authors: 'GlowTrack',

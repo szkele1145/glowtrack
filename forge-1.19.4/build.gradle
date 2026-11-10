@@ -74,8 +74,8 @@ processResources {
             forge_version          : '45.4.5',
             forge_version_range    : '[45,)',
             loader_version_range   : '[45,)',
-            mod_id                 : 'glowtrack',
-            mod_name               : 'GlowTrack',
+            mod_id                 : 'glow-track',
+            mod_name               : 'Glow Track',
             mod_license            : 'MIT',
             mod_version            : project.version,
             mod_authors            : 'GlowTrack',
@@ -88,10 +88,10 @@ processResources {
 }
 
 jar {
-    archiveFileName = "glowtrack-${version}-1.19.4-forge.jar"
+    archiveFileName = "glow-track-${version}-1.19.4-forge.jar"
     manifest {
         attributes([
-                'Specification-Title'     : 'glowtrack',
+                'Specification-Title'     : 'glow-track',
                 'Specification-Vendor'    : 'GlowTrack',
                 'Specification-Version'   : '1',
                 'Implementation-Title'    : 'GlowTrack',

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "glowtrack",
+  "id": "glow-track",
   "version": "${mod_version}",
-  "name": "GlowTrack",
+  "name": "Glow Track",
   "description": "Player movement trajectory tracker with glowing 3D path rendering and timeline review.",
   "authors": [
     "GlowTrack"
